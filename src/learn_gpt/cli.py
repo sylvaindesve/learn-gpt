@@ -4,7 +4,7 @@ import argparse
 from collections.abc import Callable, Sequence
 
 from learn_gpt import __version__
-from learn_gpt.linear.cmd import cmd_data
+from learn_gpt.linear.cmd import cmd_data, cmd_train
 
 Handler = Callable[[argparse.Namespace], int]
 
@@ -41,6 +41,10 @@ def build_parser() -> argparse.ArgumentParser:
     linear_data = linear_sub.add_parser("data", help="visualiser les données")
     linear_data.set_defaults(handler=cmd_linear_data)
 
+    # Sous-sous-commande pour l'entraînement du modèle de régression linéaire
+    linear_train = linear_sub.add_parser("train", help="entraîner le modèle")
+    linear_train.set_defaults(handler=cmd_linear_train)
+
     return parser
 
 
@@ -55,6 +59,11 @@ def _help_handler(target: argparse.ArgumentParser) -> Handler:
 
 def cmd_linear_data(_args: argparse.Namespace) -> int:
     cmd_data()
+    return 0
+
+
+def cmd_linear_train(_args: argparse.Namespace) -> int:
+    cmd_train()
     return 0
 
 

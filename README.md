@@ -35,4 +35,29 @@ Nous allons prendre nos données sur les véhicules dans le fichier [data/co2/fi
 
 La commande `uv run learn-gpt linear data` permet de représenter visuellement les données sous la forme d'un graphique dans le fichier [output/linear/data.png](./output/linear/data.png).
 
-On peut ainsi voir qu'il semble exister une relation linéaire entre les deux informations.
+On peut ainsi voir qu'il semble exister une relation linéaire entre les deux informations. Nous allons créer un modèle qui va prédire les émissions en CO₂, notées $\hat{y}$, en fonction de la consommation, notée $x$ :
+
+```math
+\hat{y} = wx + b
+```
+
+Où $w$ est la pente (ou poids) et $b$ l'ordonnée à l'origine (ou biais).
+
+La technique pour trouver les meilleures valeurs de $w$ et $b$ est la **descente de gradient** :
+
+1. On initialise $w$ et $b$ avec des valeurs arbitraires ou aléatoires
+2. Pour chaque exemple $x_i$, on calcule la prédiction $\hat{y} = wx_i + b$
+3. On calcule la perte, c'est-à-dire l'écart à la prédiction
+4. On calcule les dérivées partielles de la perte par rapport à $w$ et $b$
+5. On ajuste $w$ et $b$ en utilisant leurs dérivées partielles et un coefficient d'apprentissage
+6. On recommence
+
+Il existe plusieurs façons de calculer la perte. Pour notre exemple, on utilise l'erreur quadratique moyenne (MSE, Mean Square Error).
+
+$$L(w, b) = \frac{1}{n} \sum_{i=1}^{n} \left( y_i - \hat{y}_i \right)^2 = \frac{1}{n} \sum_{i=1}^{n} \left( y_i - (w x_i + b) \right)^2$$
+
+[Détail du calcul des dérivées partielles](./docs/derivees_partielles.md)
+
+La commande `uv run learn-gpt linear train` permet de lancer l'entraînement du modèle, de visualiser le résultat dans [output/linear/data.png](./output/linear/regression.png) et la courbe d'apprentissage dans [output/linear/data.png](./output/linear/learn.png).
+
+Le code associé est dans [src/learn_gpt/linear/train.py](./src/learn_gpt/linear/train.py). Il utilise les tenseurs de PyTorch : une petite introduction est présente dans [docs/tensor.md](./docs/tensor.md).
