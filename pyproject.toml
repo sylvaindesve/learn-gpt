@@ -1,0 +1,46 @@
+[project]
+name = "learn-gpt"
+version = "0.1.0"
+description = "Apprendre le fonctionnement d'un modèle GPT"
+readme = "README.md"
+authors = [
+    { name = "Sylvain Desvé", email = "6241+sylvaindesve@users.noreply.github.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "matplotlib>=3.9.4",
+    "torch==2.2.2",
+]
+
+[project.scripts]
+learn-gpt = "learn_gpt.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.8",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+    "C4",  # flake8-comprehensions
+    "RUF", # ruff-specific rules
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["learn_gpt"]

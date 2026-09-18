@@ -1,0 +1,23 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Tooling caches
+.ruff_cache/
+.mypy_cache/
+
+# Editors / OS
+.DS_Store
+
+# Outputs
+output/
+
+# Données téléchargées automatiquement (voir commons/data.py)
+data/
