@@ -5,7 +5,7 @@ from collections.abc import Callable, Sequence
 
 from learn_gpt import __version__
 from learn_gpt.linear.cmd import cmd_data, cmd_train
-from learn_gpt.neuron.cmd import cmd_neuron
+from learn_gpt.neuron.cmd import cmd_neuron, cmd_parabola
 
 Handler = Callable[[argparse.Namespace], int]
 
@@ -44,6 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Sous-sous-commande pour l'entraînement du modèle de régression linéaire
     linear_train = linear_sub.add_parser("train", help="entraîner le modèle")
+    _add_training_arguments(linear_train, lr_default=0.01, epochs_default=300)
     linear_train.set_defaults(handler=cmd_linear_train)
 
     # Sous-commande pour la section sur les réseaux de neurones
@@ -61,6 +62,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     neuron_show.set_defaults(handler=cmd_neuron_show)
 
+    # Sous-sous-commande pour entraîner un petit réseau sur la parabole x²
+    neuron_parabola = neuron_sub.add_parser(
+        "parabola", help="entraîner un petit réseau de neurones sur la parabole"
+    )
+    _add_training_arguments(neuron_parabola, lr_default=0.01, epochs_default=3000)
+    neuron_parabola.set_defaults(handler=cmd_neuron_parabola)
+
     return parser
 
 
@@ -73,18 +81,44 @@ def _help_handler(target: argparse.ArgumentParser) -> Handler:
     return handler
 
 
+# Options communes aux commandes d'entraînement. `%(default)s` fait
+# afficher la valeur par défaut par argparse, sans la répéter dans le texte
+def _add_training_arguments(
+    parser: argparse.ArgumentParser, lr_default: float = 0.01, epochs_default=3000
+) -> None:
+    parser.add_argument(
+        "--lr",
+        type=float,
+        default=lr_default,
+        metavar="TAUX",
+        help="taux d'apprentissage (défaut : %(default)s)",
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=epochs_default,
+        metavar="N",
+        help="nombre d'époques (défaut : %(default)s)",
+    )
+
+
 def cmd_linear_data(_args: argparse.Namespace) -> int:
     cmd_data()
     return 0
 
 
-def cmd_linear_train(_args: argparse.Namespace) -> int:
-    cmd_train()
+def cmd_linear_train(args: argparse.Namespace) -> int:
+    cmd_train(lr=args.lr, epochs=args.epochs)
     return 0
 
 
 def cmd_neuron_show(_args: argparse.Namespace) -> int:
     cmd_neuron()
+    return 0
+
+
+def cmd_neuron_parabola(args: argparse.Namespace) -> int:
+    cmd_parabola(lr=args.lr, epochs=args.epochs)
     return 0
 
 

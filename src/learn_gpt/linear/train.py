@@ -16,7 +16,7 @@ def train(
     x: torch.Tensor,
     y: torch.Tensor,
     lr: float = 0.01,
-    epochs: int = 2000,
+    epochs: int = 300,
     logger: Callable[[str], None] = lambda _: None,
     log_every: int = 50,
 ) -> tuple[torch.Tensor, torch.Tensor, list[float]]:

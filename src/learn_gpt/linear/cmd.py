@@ -31,7 +31,7 @@ def cmd_data() -> None:
 
 
 # Commande pour entraîner le modèle de régression linéaire
-def cmd_train() -> None:
+def cmd_train(*, lr: float, epochs: int) -> None:
     print_title("Régression linéaire : entraînement")
     y_co2, x_conso_mixte = _load_data()
 
@@ -42,8 +42,10 @@ def cmd_train() -> None:
     # On normalise les caractéristiques
     x, mu, sigma = normalize(x_raw)
 
-    print_indented("Entraînement...", 1)
-    w, b, loss_history = train(x, y, epochs=300, logger=lambda s: print_indented(s, 2))
+    print_indented(f"Entraînement ({epochs} époques, lr={lr})...", 1)
+    w, b, loss_history = train(
+        x, y, lr=lr, epochs=epochs, logger=lambda s: print_indented(s, 2)
+    )
     print_indented("Entraînement terminé", 1)
     print_indented(f"Valeurs finales: w={w.item():.2f}, b={b.item():.2f}", 1)
     print_indented(
@@ -58,7 +60,7 @@ def cmd_train() -> None:
     plt.plot(loss_history)
     plt.xlabel("Epoque")
     plt.ylabel("Perte (RMSE)")
-    plt.title("Courbe d'apprentissage")
+    plt.title(f"Courbe d'apprentissage ({epochs} époques, lr={lr})")
     save_figure(OUTPUT_DIR / "learn.png")
     print_indented(f"Courbe d'apprentissage créée sous {OUTPUT_DIR / 'learn.png'}", 2)
     print_new_line()
@@ -87,7 +89,9 @@ def cmd_train() -> None:
     plt.xlabel("consommation mixte (L/100 km)")
     plt.ylabel("CO₂ (g/km)")
     plt.legend()
-    plt.title("Le modèle sur de vraies données")
+    plt.title(
+        f"Emissions de CO₂ en fonction de la consommation ({epochs} époques, lr={lr})"
+    )
     save_figure(OUTPUT_DIR / "regression.png")
     print_indented(f"Régression linéaire créée sous {OUTPUT_DIR / 'regression.png'}", 2)
 
