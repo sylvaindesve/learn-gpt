@@ -5,6 +5,7 @@ from collections.abc import Callable, Sequence
 
 from learn_gpt import __version__
 from learn_gpt.linear.cmd import cmd_data, cmd_train
+from learn_gpt.neuron.cmd import cmd_neuron
 
 Handler = Callable[[argparse.Namespace], int]
 
@@ -45,6 +46,21 @@ def build_parser() -> argparse.ArgumentParser:
     linear_train = linear_sub.add_parser("train", help="entraîner le modèle")
     linear_train.set_defaults(handler=cmd_linear_train)
 
+    # Sous-commande pour la section sur les réseaux de neurones
+    neuron = subparsers.add_parser("neuron", help="section réseau de neurones")
+    neuron.set_defaults(handler=_help_handler(neuron))
+    neuron_sub = neuron.add_subparsers(
+        title="sous-commandes",
+        dest="neuron_command",
+        metavar="SOUS-COMMANDE",
+    )
+
+    # Sous-sous-commande pour voir la sortie d'un neurone
+    neuron_show = neuron_sub.add_parser(
+        "show", help="visualiser la sortie d'un neurone"
+    )
+    neuron_show.set_defaults(handler=cmd_neuron_show)
+
     return parser
 
 
@@ -64,6 +80,11 @@ def cmd_linear_data(_args: argparse.Namespace) -> int:
 
 def cmd_linear_train(_args: argparse.Namespace) -> int:
     cmd_train()
+    return 0
+
+
+def cmd_neuron_show(_args: argparse.Namespace) -> int:
+    cmd_neuron()
     return 0
 
 

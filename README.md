@@ -37,9 +37,7 @@ La commande `uv run learn-gpt linear data` permet de représenter visuellement l
 
 On peut ainsi voir qu'il semble exister une relation linéaire entre les deux informations. Nous allons créer un modèle qui va prédire les émissions en CO₂, notées $\hat{y}$, en fonction de la consommation, notée $x$ :
 
-```math
-\hat{y} = wx + b
-```
+$$\hat{y} = wx + b$$
 
 Où $w$ est la pente (ou poids) et $b$ l'ordonnée à l'origine (ou biais).
 
@@ -58,6 +56,92 @@ $$L(w, b) = \frac{1}{n} \sum_{i=1}^{n} \left( y_i - \hat{y}_i \right)^2 = \frac{
 
 [Détail du calcul des dérivées partielles](./docs/derivees_partielles.md)
 
-La commande `uv run learn-gpt linear train` permet de lancer l'entraînement du modèle, de visualiser le résultat dans [output/linear/data.png](./output/linear/regression.png) et la courbe d'apprentissage dans [output/linear/data.png](./output/linear/learn.png).
+La commande `uv run learn-gpt linear train` permet de lancer l'entraînement du modèle, de visualiser le résultat dans [output/linear/regression.png](./output/linear/regression.png) et la courbe d'apprentissage dans [output/linear/learn.png](./output/linear/learn.png).
 
 Le code associé est dans [src/learn_gpt/linear/train.py](./src/learn_gpt/linear/train.py). Il utilise les tenseurs de PyTorch : une petite introduction est présente dans [docs/tensor.md](./docs/tensor.md).
+
+Il existe d'autres modèles d'apprentissage (voir [Apprentissage automatique](https://fr.wikipedia.org/wiki/Apprentissage_automatique#Modèles)), mais ils reposent tous sur le même principe : appliquer des opérations à une entrée, mesurer la perte, puis ajuster les paramètres pour la réduire. Les modèles GPT ne font pas exception, ils se contentent d'enchaîner beaucoup plus d'opérations sur beaucoup plus de paramètres.
+
+## Le Deep Learning (ou apprentissage profond)
+
+L'[apprentissage profond](https://fr.wikipedia.org/wiki/Apprentissage_profond) est une technique d'apprentissage automatique qui utilise des réseaux de neurones artificiels. Un neurone artificiel (ou formel) n'est ni plus ni moins qu'une fonction mathématique. Il se schématise comme suit :
+
+```mermaid
+flowchart LR
+    x1["x₁"] --> mult1["×"]
+    w1["w₁"] --> mult1
+
+    x2["x₂"] --> mult2["×"]
+    w2["w₂"] --> mult2
+
+    xn["xₙ"] --> multn["×"]
+    wn["wₙ"] --> multn
+
+    mult1 --> sum["Σ"]
+    mult2 --> sum
+    multn --> sum
+
+    b["biais b"] --> sum
+
+    sum --> act["φ(·)"]
+    act --> y["y = φ(Σ wᵢxᵢ + b)"]
+```
+
+Sa formule mathématique est :
+
+$$y = \varphi (\sum_{i=1}^{n}w_i x_i + b)$$
+
+où :
+
+- $x_i$ sont les entrées,
+- $w_i$ sont les poids,
+- $b$ est le biais,
+- $\varphi$ est la fonction d'activation,
+- $y$ est la sortie du neurone.
+
+On y retrouve l'équation de la régression linéaire mais avec plusieurs entrées et une fonction d'activation. La fonction d'activation est généralement une fonction non linéaire : elle permet de "plier" la sortie et de la borner.
+
+Ces neurones sont ensuite agencés en un réseau, par exemple :
+
+```mermaid
+flowchart LR
+    subgraph E["Couche d'entrée"]
+        x1["x₁"]
+        x2["x₂"]
+        x3["x₃"]
+    end
+
+    subgraph H["Couche cachée"]
+        h1["h₁"]
+        h2["h₂"]
+    end
+
+    subgraph S["Couche de sortie"]
+        y1["y₁"]
+        y2["y₂"]
+    end
+
+    x1 --> h1
+    x1 --> h2
+    x2 --> h1
+    x2 --> h2
+    x3 --> h1
+    x3 --> h2
+
+    h1 --> y1
+    h1 --> y2
+    h2 --> y1
+    h2 --> y2
+```
+
+Ce réseau prend en entrée 3 valeurs ($x_1$, $x_2$, $x_3$), utilise 2 neurones cachés ($h_1$, $h_2$) et 2 neurones de sortie ($y_1$, $y_2$). Les neurones cachés ont chacun 3 poids et 1 biais, tandis que les neurones de sortie ont chacun 2 poids et 1 biais. Ce réseau a donc 14 paramètres.
+
+Pour entraîner ce réseau à prédire $(y_1, y_2)$ en fonction de $(x_1, x_2, x_3)$ la technique est sensiblement la même que sur la régression linéaire :
+
+- les valeurs de sortie sont calculées pour un ensemble de données d'entrée
+- la perte par rapport à la sortie attendue est calculée
+- les dérivées partielles de la perte pour chaque paramètre sont calculées
+- chaque paramètre est ajusté
+- on recommence
+
+Une simple implémentation de neurone est visible dans [src/learn_gpt/neuron/neuron.py](./src/learn_gpt/neuron/neuron.py) et la commande `uv run learn-gpt neuron show` permet de visualiser la sortie d'un neurone avec différentes valeurs de $w$ et $b$ dans [output/neuron/neuron.png](./output/neuron/neuron.png).
