@@ -5,7 +5,7 @@ from collections.abc import Callable, Sequence
 
 from learn_gpt import __version__
 from learn_gpt.linear.cmd import cmd_data, cmd_train
-from learn_gpt.neuron.cmd import cmd_neuron, cmd_parabola
+from learn_gpt.neuron.cmd import cmd_co2, cmd_neuron, cmd_parabola
 
 Handler = Callable[[argparse.Namespace], int]
 
@@ -44,7 +44,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Sous-sous-commande pour l'entraînement du modèle de régression linéaire
     linear_train = linear_sub.add_parser("train", help="entraîner le modèle")
-    _add_training_arguments(linear_train, lr_default=0.01, epochs_default=300)
+    _add_lr_argument(linear_train, default=0.01)
+    _add_epochs_argument(linear_train, default=300)
     linear_train.set_defaults(handler=cmd_linear_train)
 
     # Sous-commande pour la section sur les réseaux de neurones
@@ -66,8 +67,24 @@ def build_parser() -> argparse.ArgumentParser:
     neuron_parabola = neuron_sub.add_parser(
         "parabola", help="entraîner un petit réseau de neurones sur la parabole"
     )
-    _add_training_arguments(neuron_parabola, lr_default=0.01, epochs_default=3000)
+    _add_lr_argument(neuron_parabola, default=0.01)
+    _add_epochs_argument(neuron_parabola, default=3000)
     neuron_parabola.set_defaults(handler=cmd_neuron_parabola)
+
+    # Sous-sous-commande pour entraîner un réseau sur les données de CO₂
+    neuron_co2 = neuron_sub.add_parser(
+        "co2", help="entraîner un réseau sur les données de CO₂"
+    )
+    _add_layer_size_argument(neuron_co2, default=64)
+    _add_layers_argument(neuron_co2, default=1)
+    _add_batch_size_argument(neuron_co2, default=1024)
+    _add_adam_argument(neuron_co2)
+    _add_lr_argument(neuron_co2, default=0.01)
+    _add_weight_decay_argument(neuron_co2, default=0.0)
+    _add_dropout_argument(neuron_co2, default=0.0)
+    _add_epochs_argument(neuron_co2, default=300)
+    _add_learning_curve_filename_argument(neuron_co2, default="co2_learn.png")
+    neuron_co2.set_defaults(handler=cmd_neuron_co2)
 
     return parser
 
@@ -81,24 +98,116 @@ def _help_handler(target: argparse.ArgumentParser) -> Handler:
     return handler
 
 
-# Options communes aux commandes d'entraînement. `%(default)s` fait
-# afficher la valeur par défaut par argparse, sans la répéter dans le texte
-def _add_training_arguments(
-    parser: argparse.ArgumentParser, lr_default: float = 0.01, epochs_default=3000
+# Ajoute un argument sur la taille de la couche cachée de neurones
+def _add_layer_size_argument(
+    parser: argparse.ArgumentParser, default: int = 32
 ) -> None:
+    parser.add_argument(
+        "--layersize",
+        type=int,
+        default=default,
+        metavar="N",
+        help="nombre de neurones dans la couche cachée (défaut : %(default)s)",
+    )
+
+
+# Ajoute un argument sur le nombre de couches cachées
+def _add_layers_argument(parser: argparse.ArgumentParser, default: int = 1) -> None:
+    parser.add_argument(
+        "--layers",
+        type=int,
+        default=default,
+        metavar="N",
+        help="nombre de couches cachées (défaut : %(default)s)",
+    )
+
+
+# Ajoute un argument pour le contrôle du taux d'apprentissage
+def _add_lr_argument(parser: argparse.ArgumentParser, default: float = 0.01) -> None:
     parser.add_argument(
         "--lr",
         type=float,
-        default=lr_default,
+        default=default,
         metavar="TAUX",
         help="taux d'apprentissage (défaut : %(default)s)",
     )
+
+
+# Ajoute un argument pour le contrôle du nombre d'époques
+def _add_epochs_argument(parser: argparse.ArgumentParser, default: int = 3000) -> None:
     parser.add_argument(
         "--epochs",
         type=int,
-        default=epochs_default,
+        default=default,
         metavar="N",
         help="nombre d'époques (défaut : %(default)s)",
+    )
+
+
+# Ajoute un argument pour le contrôle de la taille des lots
+def _add_batch_size_argument(
+    parser: argparse.ArgumentParser, default: int = 1024
+) -> None:
+    parser.add_argument(
+        "--batch",
+        type=int,
+        default=default,
+        metavar="N",
+        help="taille des lots (défaut : %(default)s)",
+    )
+
+
+# Ajoute un argument pour le contrôle du weight decay
+def _add_weight_decay_argument(
+    parser: argparse.ArgumentParser, default: float = 0.0
+) -> None:
+    parser.add_argument(
+        "--wd",
+        type=float,
+        default=default,
+        metavar="TAUX",
+        help="weight decay (défaut : %(default)s)",
+    )
+
+
+# Ajoute un argument pour le contrôle du dropout
+def _add_dropout_argument(
+    parser: argparse.ArgumentParser, default: float = 0.0
+) -> None:
+    parser.add_argument(
+        "--dropout",
+        type=float,
+        default=default,
+        metavar="TAUX",
+        help="dropout (défaut : %(default)s)",
+    )
+
+
+# Ajoute un argument pour choisir Adam à la place de la descente de gradient
+def _add_adam_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--adam",
+        action="store_true",
+        help=(
+            "utilise Adam au lieu de la descente de gradient classique (SGD), "
+            "penser à baisser le lr"
+        ),
+    )
+
+
+# Ajoute un argument pour indiquer le fichier pour la courbe d'apprentissage
+def _add_learning_curve_filename_argument(
+    parser: argparse.ArgumentParser, default: str = "curve.png"
+) -> None:
+    parser.add_argument(
+        "--filename",
+        type=str,
+        default=default,
+        metavar="FILENAME",
+        help=(
+            "nom du fichier pour le tracé de la courbe d'apprentissage "
+            "(défaut : %(default)s)"
+        ),
     )
 
 
@@ -119,6 +228,21 @@ def cmd_neuron_show(_args: argparse.Namespace) -> int:
 
 def cmd_neuron_parabola(args: argparse.Namespace) -> int:
     cmd_parabola(lr=args.lr, epochs=args.epochs)
+    return 0
+
+
+def cmd_neuron_co2(args: argparse.Namespace) -> int:
+    cmd_co2(
+        layer_size=args.layersize,
+        n_layers=args.layers,
+        batch_size=args.batch,
+        adam=args.adam,
+        lr=args.lr,
+        weight_decay=args.wd,
+        dropout=args.dropout,
+        epochs=args.epochs,
+        filename=args.filename,
+    )
     return 0
 
 

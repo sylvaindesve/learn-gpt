@@ -4,6 +4,8 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+import torch
+
 
 # Lit un CSV et retourne ses colonnes sous la forme
 # { header1: [values, ...], header2: [values, ...] }
@@ -46,6 +48,16 @@ def extract_data(
         for j, value in enumerate(row_features):
             features[j].append(value)
     return target, features, skipped
+
+
+# Sépare les données en données d'entraînement et données de validation
+def split(x: torch.Tensor, y: torch.Tensor, ratio: float = 0.2, seed: int = 0):
+    g = torch.Generator().manual_seed(seed)
+    n = x.shape[0]
+    indices = torch.randperm(n, generator=g)
+    n_val = int(ratio * n)
+    idx_val, idx_train = indices[:n_val], indices[n_val:]
+    return x[idx_train], y[idx_train], x[idx_val], y[idx_val]
 
 
 # Télécharge `url` vers `destination`, en créant les dossiers parents.

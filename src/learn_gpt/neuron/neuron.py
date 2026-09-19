@@ -64,6 +64,7 @@ def create_network_parameters(
     return wh, bh, wo, bo
 
 
+# Entraîne le réseau de neurones
 def train(
     x: torch.Tensor,  # liste de n exemples de forme (n,)
     y: torch.Tensor,  # les valeurs cibles pour les n exemples, de forme (n,)

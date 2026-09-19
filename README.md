@@ -64,6 +64,8 @@ Il existe d'autres modèles d'apprentissage (voir [Apprentissage automatique](ht
 
 ## Le Deep Learning (ou apprentissage profond)
 
+### Introduction
+
 L'[apprentissage profond](https://fr.wikipedia.org/wiki/Apprentissage_profond) est une technique d'apprentissage automatique qui utilise des réseaux de neurones artificiels. Un neurone artificiel (ou formel) n'est ni plus ni moins qu'une fonction mathématique. Il se schématise comme suit :
 
 ```mermaid
@@ -146,4 +148,32 @@ Pour entraîner ce réseau à prédire $(y_1, y_2)$ en fonction de $(x_1, x_2, x
 
 Une simple implémentation de neurone est visible dans [src/learn_gpt/neuron/neuron.py](./src/learn_gpt/neuron/neuron.py) et la commande `uv run learn-gpt neuron show` permet de visualiser la sortie d'un neurone avec différentes valeurs de $w$ et $b$ dans [output/neuron/neuron.png](./output/neuron/neuron.png).
 
-De fichier contient également une implémentation d'un petit réseau de neurones 1 → h → 1 (1 entrée, h neurones cachés, 1 sortie) qu'il est possible d'entraîner à coller à la parabole x² avec la commande `uv run learn-gpt neuron parabola`. Il est possible de jouer sur le taux d'apprentissage et le nombre d'époques : `uv run learn-gpt neuron parabola --lr=0.05 --epochs=1000`. La courbe d'apprentissage sera consultable dans [output/neuron/learn_simple.png](./output/neuron/learn_simple.png) et le résultat dans [output/neuron/parabola.png](./output/neuron/parabola.png).
+Ce fichier contient également une implémentation d'un petit réseau de neurones 1 → h → 1 (1 entrée, h neurones cachés, 1 sortie) qu'il est possible d'entraîner à coller à la parabole x² avec la commande `uv run learn-gpt neuron parabola`. Il est possible de jouer sur le taux d'apprentissage et le nombre d'époques (i.e. le nombre de fois où l'on fait passer la totalité des données au modèle) : `uv run learn-gpt neuron parabola --lr=0.05 --epochs=1000`. La courbe d'apprentissage sera consultable dans [output/neuron/learn_simple.png](./output/neuron/learn_simple.png) et le résultat dans [output/neuron/parabola.png](./output/neuron/parabola.png).
+
+### Entraînement d'un réseau de neurones
+
+Dans notre régression linéaire sur les émissions de CO₂, nous avions utilisé en entrée les données de consommation (en L/100 km) ce qui est un peu de la triche car la consommation est déjà une donnée embarquant un grand nombre de phénomènes physiques et chimiques. Il n'est donc pas étonnant de trouver une relation linéaire entre cette consommation et les émissions de CO₂.
+
+Nous allons donc ignorer cette consommation et nous baser sur 4 autres données :
+
+- la puissance maximum du véhicule
+- sa puissance administrative déclarée
+- sa masse
+- son carburant (essence ou diesel)
+
+Nous allons donc utiliser un réseau 4 → h → 1. Nous pourrions même imaginer avoir plusieurs couches : 4 → h → h → h → 1. Ce type de réseau est appelé réseau MLP pour [Multilayer Perceptron](https://fr.wikipedia.org/wiki/Perceptron_multicouche).
+
+Nous allons également diviser aléatoirement notre jeu de données en deux : des données d'entraînement et des données de validation. Le modèle n'est pas entraîné sur les données de validation et donc un calcul de perte sur ces données est une mesure plus honnête de la performance du modèle.
+
+L'entraînement de notre modèle sur les données de CO₂ peut être lancé avec `uv run learn-gpt neuron co2` et la courbe d'apprentissage résultant sera disponible dans [output/neuron/co2_learn.png](./output/neuron/co2_learn.png).
+
+Les hyperparamètres sont les paramètres qui permettent de régler le modèle et son entraînement, et de s'assurer que le modèle apprend correctement. Nous avons déjà vu le taux d'apprentissage (LR, Learning Rate) et le nombre d'époques. Sur ce modèle, il est possible de régler :
+
+- la taille des couches cachées : le nombre de neurones dans chaque couche cachée. C'est le premier levier pour augmenter la capacité du modèle
+- le nombre de couches cachées : empiler plusieurs couches permet au réseau de représenter des relations plus complexes entre les entrées
+- la taille de lots : en effet, ici l'entraînement est fait par lots piochés dans la totalité des données
+- le [weight decay](https://fr.wikipedia.org/wiki/Weight_decay) : il s'agit d'appliquer une pénalité qui dépend des poids à la perte et qui limite le [surapprentissage](https://fr.wikipedia.org/wiki/Surapprentissage) (le modèle est trop adapté à ses données d'entraînement et incapable de généraliser : cette problématique peut s'observer sur les courbes d'apprentissage lorsque la courbe sur les données stagne ou monte alors que la courbe sur les données d'entraînement continue de descendre)
+- le [dropout](https://fr.wikipedia.org/wiki/Abandon_(réseaux_neuronaux)) : une autre technique pour limiter le surapprentissage qui consiste à "éteindre" aléatoirement certains neurones durant l'entraînement
+- la technique de descente de gradient pour utiliser [Adam](https://fr.wikipedia.org/wiki/Algorithme_du_gradient_stochastique#Adam) plutôt qu'une descente de gradient classique : cette technique applique un taux d'apprentissage adaptatif
+
+`uv run learn-gpt neuron co2 --help` pour voir comment influer sur ces hyperparamètres.
