@@ -39,12 +39,14 @@ class CharTokenizer:
         return ids
 
     # Decodage d'une liste d'ID de tokens en un texte
-    def decode(self, ids: list[int]) -> str:
+    def decode(self, ids: list[int], keep_special: bool = False) -> str:
         # On utilise simplement notre vocabulaire inverse
         # - en remplaçant les inconnus par <unk>
         # - en ignorant les autres tokens spéciaux
         toks = [
-            self.inv_vocab.get(i, "<unk>") for i in ids if i not in (BOS_ID, EOS_ID)
+            self.inv_vocab.get(i, "<unk>")
+            for i in ids
+            if keep_special or i not in (BOS_ID, EOS_ID)
         ]
 
         # On met tout ça bout à bout

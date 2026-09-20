@@ -5,8 +5,8 @@ from torch import nn
 
 from learn_gpt.commons.plotting import plt, save_figure, set_title
 from learn_gpt.commons.print_helpers import print_indented, print_new_line, print_title
-from learn_gpt.text.models import CharacterModel, top_next_tokens, train
-from learn_gpt.text.tokenizer import CharTokenizer
+from learn_gpt.text.models import CharacterModel, generate, top_next_tokens, train
+from learn_gpt.text.tokenizer import BOS_ID, EOS_ID, CharTokenizer
 
 OUTPUT_DIR = Path.cwd() / "output" / "text"
 
@@ -129,13 +129,16 @@ def cmd_v1(*, embedding_dim: int, lr: float, epochs: int, filename: str) -> None
     ys: list[int] = []
     # Pour chaque mot du corpus
     for mot in MOTS:
-        token_ids = tokenizer.encode(mot, add_special=False)
+        token_ids = tokenizer.encode(mot)
         xs += token_ids[:-1]  # Tous sauf le dernier
         ys += token_ids[1:]  # Tous sauf le premier (décalage de 1)
 
     print_indented(f"Nombre de paires (id token, id token suivant): {len(xs)}", 2)
     pairs = [
-        (tokenizer.decode([i]), tokenizer.decode([j]))
+        (
+            tokenizer.decode([i], keep_special=True),
+            tokenizer.decode([j], keep_special=True),
+        )
         for i, j in zip(xs[:8], ys[:8], strict=True)
     ]
     print_indented(f"Premières paires: {pairs}", 2)
@@ -178,6 +181,22 @@ def cmd_v1(*, embedding_dim: int, lr: float, epochs: int, filename: str) -> None
 
     for c in ["c", "s", "t"]:
         tops = top_next_tokens(char_model, tokenizer.encode(c, add_special=False)[0])
-        print_indented(
-            f"Après '{c}': {[(tokenizer.decode([i]), prob) for i, prob in tops]}", 2
-        )
+        next_tokens = [
+            (tokenizer.decode([i], keep_special=True), prob) for i, prob in tops
+        ]
+        print_indented(f"Après '{c}': {next_tokens}", 2)
+    print_new_line()
+
+    print_indented("Génération avec le modèle entraîné:", 1)
+    # Pour que les générations soient reproductibles
+    torch.manual_seed(42)  # Parce que 42 est la réponse à la grande question sur la vie
+
+    print_indented("Avec température T=0.8:", 2)
+    for _ in range(10):
+        tokens = generate(char_model, BOS_ID, EOS_ID, temperature=0.8)
+        print_indented(tokenizer.decode(tokens), 3)
+
+    print_indented("Avec température T=0.4:", 2)
+    for _ in range(10):
+        tokens = generate(char_model, BOS_ID, EOS_ID, temperature=0.4)
+        print_indented(tokenizer.decode(tokens), 3)

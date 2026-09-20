@@ -224,6 +224,13 @@ Pour visualiser ces calculs de perte : `uv run learn-gpt text loss`.
 
 Avec ces éléments, nous pouvons construire un premier modèle pour prédire le caractère suivant. Ce premier modèle n'aura qu'un seul caractère de contexte.
 
-Pour entraîner ce modèle, nous allons construire pour chaque mot les paires **(caractère, caractère suivant)** puis nous donnerons au modèle les **caractères** et calculerons la perte par rapport aux **caractères suivants**.
+Pour entraîner ce modèle, nous allons construire pour chaque mot les paires **(caractère, caractère suivant)** puis nous donnerons au modèle les **caractères** et calculerons la perte par rapport aux **caractères suivants**. Chaque mot est encadré par des tokens spéciaux `<bos>` (beginning of sequence) et `<eos>` (end of sequence) ce qui permet au modèle d'apprendre où commencent et finissent les mots.
 
-Le modèle et le code d'entraînement sont dans [src/learn_gpt/text/models.py](./src/learn_gpt/text/models.py). La commande pour lancer l'entraînement et visualiser quelques prédictions est `uv run learn-gpt text v1`. La courbe d'apprentissage sera visible dans [output/text/v1_learn.png](./output/text/v1_learn.png). `uv run learn-gpt text v1 --help` pour voir les paramètres sur lesquels il est possible d'influer.
+Une fois le modèle entraîné, il peut être utilisé pour générer des mots. Pour cela, on part de `<bos>` qu'on fournit au modèle pour avoir la distribution de probabilité du prochain token. On divise les logits par une **température** `T` avant de calculer la distribution :
+
+- une température `T < 1` rend la distribution plus pointue et donc plus prévisible
+- une température `T > 1` rend la distribution plus plate et donc moins prévisible
+
+Le prochain token est tiré aléatoirement en tenant compte de la distribution. On recommence alors avec ce token jusqu'à ce que le token `<eos>` soit tiré.
+
+Le modèle, le code d'entraînement et le code de génération sont dans [src/learn_gpt/text/models.py](./src/learn_gpt/text/models.py). La commande pour lancer l'entraînement, visualiser quelques prédictions et générer des mots est `uv run learn-gpt text v1`. La courbe d'apprentissage sera visible dans [output/text/v1_learn.png](./output/text/v1_learn.png). `uv run learn-gpt text v1 --help` pour voir les paramètres sur lesquels il est possible d'influer.
