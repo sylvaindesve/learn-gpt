@@ -3,7 +3,7 @@ from pathlib import Path
 import torch
 
 from learn_gpt.commons.data import ensure_file, extract_data, read_csv
-from learn_gpt.commons.plotting import plt, save_figure
+from learn_gpt.commons.plotting import plt, save_figure, set_title
 from learn_gpt.commons.print_helpers import print_indented, print_new_line, print_title
 from learn_gpt.linear.train import normalize, train
 
@@ -25,7 +25,7 @@ def cmd_data() -> None:
     plt.scatter(x_conso_mixte, y_co2, s=1, alpha=0.3, label="données")
     plt.xlabel("Consommation (L/100km)")
     plt.ylabel("Emissions de CO₂ (g/km)")
-    plt.title("Emissions de CO₂ en fonction de la consommation")
+    set_title("Emissions de CO₂ en fonction de la consommation")
     save_figure(OUTPUT_DIR / "data.png")
     print_indented(f"Visualisation graphique créée sous {OUTPUT_DIR / 'data.png'}", 2)
 
@@ -60,7 +60,7 @@ def cmd_train(*, lr: float, epochs: int) -> None:
     plt.plot(loss_history)
     plt.xlabel("Epoque")
     plt.ylabel("Perte (RMSE)")
-    plt.title(f"Courbe d'apprentissage ({epochs} époques, lr={lr})")
+    set_title("Courbe d'apprentissage", f"{epochs} époques, lr={lr}")
     save_figure(OUTPUT_DIR / "learn.png")
     print_indented(f"Courbe d'apprentissage créée sous {OUTPUT_DIR / 'learn.png'}", 2)
     print_new_line()
@@ -89,8 +89,9 @@ def cmd_train(*, lr: float, epochs: int) -> None:
     plt.xlabel("consommation mixte (L/100 km)")
     plt.ylabel("CO₂ (g/km)")
     plt.legend()
-    plt.title(
-        f"Emissions de CO₂ en fonction de la consommation ({epochs} époques, lr={lr})"
+    set_title(
+        "Emissions de CO₂ en fonction de la consommation",
+        f"{epochs} époques, lr={lr}",
     )
     save_figure(OUTPUT_DIR / "regression.png")
     print_indented(f"Régression linéaire créée sous {OUTPUT_DIR / 'regression.png'}", 2)

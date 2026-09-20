@@ -3,7 +3,7 @@ from pathlib import Path
 import torch
 from torch import nn
 
-from learn_gpt.commons.plotting import plt, save_figure
+from learn_gpt.commons.plotting import plt, save_figure, set_title
 from learn_gpt.commons.print_helpers import print_indented, print_new_line, print_title
 from learn_gpt.text.models import CharacterModel, top_next_tokens, train
 from learn_gpt.text.tokenizer import CharTokenizer
@@ -165,9 +165,9 @@ def cmd_v1(*, embedding_dim: int, lr: float, epochs: int, filename: str) -> None
     plt.plot(loss_history)
     plt.xlabel("Époque")
     plt.ylabel("Entropie croisée")
-    plt.title(
-        f"Courbe d'apprentissage du modèle v1 (taille des embedding = {embedding_dim}, "
-        f"{epochs} époques, lr={lr})"
+    set_title(
+        "Courbe d'apprentissage du modèle v1",
+        f"taille des embeddings = {embedding_dim}, {epochs} époques, lr={lr}",
     )
     plt.grid(True)
     save_figure(filepath)
