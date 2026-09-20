@@ -17,6 +17,7 @@ from learn_gpt.text.cmd import (
     cmd_loss as text_cmd_loss,
     cmd_show as text_cmd_show,
     cmd_v1 as text_cmd_v1,
+    cmd_v2 as text_cmd_v2,
 )
 
 Handler = Callable[[argparse.Namespace], int]
@@ -123,6 +124,16 @@ def build_parser() -> argparse.ArgumentParser:
     _add_learning_curve_filename_argument(text_v1, default="v1_learn.png")
     text_v1.set_defaults(handler=cmd_text_v1)
 
+    # Sous-sous-commande pour entraîner un modèle v2 avec fenêtre de contexte
+    text_v2 = text_sub.add_parser("v2", help="entraîner et tester un modèle v2")
+    _add_embedding_dim_argument(text_v2, default=8)
+    _add_block_size_argument(text_v2, default=3)
+    _add_layer_size_argument(text_v2, default=64)
+    _add_lr_argument(text_v2, default=0.02)
+    _add_epochs_argument(text_v2, default=100)
+    _add_learning_curve_filename_argument(text_v2, default="v2_learn.png")
+    text_v2.set_defaults(handler=cmd_text_v2)
+
     return parser
 
 
@@ -158,6 +169,17 @@ def _add_embedding_dim_argument(
         default=default,
         metavar="N",
         help="taille des embeddings (défaut : %(default)s)",
+    )
+
+
+# Ajoute un argument sur la taille de la fenêtre de contexte
+def _add_block_size_argument(parser: argparse.ArgumentParser, default: int = 3) -> None:
+    parser.add_argument(
+        "--block",
+        type=int,
+        default=default,
+        metavar="N",
+        help="taille de la fenêtre de contexte (défaut : %(default)s)",
     )
 
 
@@ -309,6 +331,18 @@ def cmd_text_loss(_args: argparse.Namespace) -> int:
 def cmd_text_v1(args: argparse.Namespace) -> int:
     text_cmd_v1(
         embedding_dim=args.embedding,
+        lr=args.lr,
+        epochs=args.epochs,
+        filename=args.filename,
+    )
+    return 0
+
+
+def cmd_text_v2(args: argparse.Namespace) -> int:
+    text_cmd_v2(
+        embedding_dim=args.embedding,
+        block_size=args.block,
+        layer_size=args.layersize,
         lr=args.lr,
         epochs=args.epochs,
         filename=args.filename,

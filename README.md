@@ -233,4 +233,21 @@ Une fois le modèle entraîné, il peut être utilisé pour générer des mots. 
 
 Le prochain token est tiré aléatoirement en tenant compte de la distribution. On recommence alors avec ce token jusqu'à ce que le token `<eos>` soit tiré.
 
-Le modèle, le code d'entraînement et le code de génération sont dans [src/learn_gpt/text/models.py](./src/learn_gpt/text/models.py). La commande pour lancer l'entraînement, visualiser quelques prédictions et générer des mots est `uv run learn-gpt text v1`. La courbe d'apprentissage sera visible dans [output/text/v1_learn.png](./output/text/v1_learn.png). `uv run learn-gpt text v1 --help` pour voir les paramètres sur lesquels il est possible d'influer.
+Le modèle, le code d'entraînement et le code de génération sont dans [src/learn_gpt/text/models.py](./src/learn_gpt/text/models.py), classe `CharacterModel`. La commande pour lancer l'entraînement, visualiser quelques prédictions et générer des mots est `uv run learn-gpt text v1`. La courbe d'apprentissage sera visible dans [output/text/v1_learn.png](./output/text/v1_learn.png). `uv run learn-gpt text v1 --help` pour voir les paramètres sur lesquels il est possible d'influer.
+
+### v2 : ajouter du contexte
+
+Notre modèle ne décide que sur la base du caractère qui vient juste avant. Le caractère qui vient après `a` n'est pas le même selon ce qu'il y a avant ce `a` :
+
+- `(en)a` donnerait plutôt `r` comme dans *renard*
+- `(se)a` donnerait plutôt `u` comme dans *oiseau*
+
+Nous allons donc permettre au modèle de regarder en arrière au moyen d'une **fenêtre de contexte** de taille `block_size`. Nous donnons au modèle les `block_size` derniers caractères, pas seulement le dernier. Par ailleurs, nous ajoutons une couche cachée (avec une non-linéarité) entre l'entrée et la sortie du modèle pour plus de calculs.
+
+Gérer ce contexte ne change pas le nombre d'exemples sur le même corpus car on génère les exemples via une fenêtre glissante.
+
+La fonction d'entraînement est inchangée et le modèle v2 est la classe `ContextCharacterModel` dans [src/learn_gpt/text/models.py](./src/learn_gpt/text/models.py). La fonction de génération est légèrement différente car il faut fournir le contexte au modèle.
+
+`uv run learn-gpt text v2` pour l'entraînement et la génération, `uv run learn-gpt text v2 --help` pour voir les réglages possibles. La courbe d'apprentissage sera visible dans [output/text/v2_learn.png](./output/text/v2_learn.png).
+
+L'ajout de cette fenêtre de contexte fait baisser la perte de **1,58** à **0,43** et le noms d'animaux générés, quand ils ne sont pas exactement ceux du corpus, sont des noms crédibles.
