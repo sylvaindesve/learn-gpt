@@ -6,8 +6,7 @@ from learn_gpt.commons.data import ensure_file, extract_data, read_csv, split
 from learn_gpt.commons.plotting import plt, save_figure, trace_learning_curve
 from learn_gpt.commons.print_helpers import print_indented, print_new_line, print_title
 from learn_gpt.linear.train import normalize
-from learn_gpt.neuron.mlp import MultiLayerPerceptron
-from learn_gpt.neuron.mlp import train as train_mlp
+from learn_gpt.neuron.mlp import MultiLayerPerceptron, train as train_mlp
 from learn_gpt.neuron.neuron import create_network_parameters, network, neuron, train
 
 OUTPUT_DIR = Path.cwd() / "output" / "neuron"

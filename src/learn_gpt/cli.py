@@ -4,8 +4,16 @@ import argparse
 from collections.abc import Callable, Sequence
 
 from learn_gpt import __version__
-from learn_gpt.linear.cmd import cmd_data, cmd_train
-from learn_gpt.neuron.cmd import cmd_co2, cmd_neuron, cmd_parabola
+from learn_gpt.linear.cmd import (
+    cmd_data as linear_cmd_data,
+    cmd_train as linear_cmd_train,
+)
+from learn_gpt.neuron.cmd import (
+    cmd_co2 as neuron_cmd_co2,
+    cmd_neuron as neuron_cmd_neuron,
+    cmd_parabola as neuron_cmd_parabola,
+)
+from learn_gpt.text.cmd import cmd_show as text_cmd_show
 
 Handler = Callable[[argparse.Namespace], int]
 
@@ -85,6 +93,19 @@ def build_parser() -> argparse.ArgumentParser:
     _add_epochs_argument(neuron_co2, default=300)
     _add_learning_curve_filename_argument(neuron_co2, default="co2_learn.png")
     neuron_co2.set_defaults(handler=cmd_neuron_co2)
+
+    # Sous-commande pour la section sur le texte
+    text = subparsers.add_parser("text", help="section texte")
+    text.set_defaults(handler=_help_handler(text))
+    text_sub = text.add_subparsers(
+        title="sous-commandes",
+        dest="text_command",
+        metavar="SOUS-COMMANDE",
+    )
+
+    # Sous-sous-commande pour voir la représentation de texte avec des nombres
+    text_show = text_sub.add_parser("show", help="texte sous forme de nombres")
+    text_show.set_defaults(handler=cmd_text_show)
 
     return parser
 
@@ -212,27 +233,27 @@ def _add_learning_curve_filename_argument(
 
 
 def cmd_linear_data(_args: argparse.Namespace) -> int:
-    cmd_data()
+    linear_cmd_data()
     return 0
 
 
 def cmd_linear_train(args: argparse.Namespace) -> int:
-    cmd_train(lr=args.lr, epochs=args.epochs)
+    linear_cmd_train(lr=args.lr, epochs=args.epochs)
     return 0
 
 
 def cmd_neuron_show(_args: argparse.Namespace) -> int:
-    cmd_neuron()
+    neuron_cmd_neuron()
     return 0
 
 
 def cmd_neuron_parabola(args: argparse.Namespace) -> int:
-    cmd_parabola(lr=args.lr, epochs=args.epochs)
+    neuron_cmd_parabola(lr=args.lr, epochs=args.epochs)
     return 0
 
 
 def cmd_neuron_co2(args: argparse.Namespace) -> int:
-    cmd_co2(
+    neuron_cmd_co2(
         layer_size=args.layersize,
         n_layers=args.layers,
         batch_size=args.batch,
@@ -243,6 +264,11 @@ def cmd_neuron_co2(args: argparse.Namespace) -> int:
         epochs=args.epochs,
         filename=args.filename,
     )
+    return 0
+
+
+def cmd_text_show(_args: argparse.Namespace) -> int:
+    text_cmd_show()
     return 0
 
 

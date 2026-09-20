@@ -177,3 +177,27 @@ Les hyperparamètres sont les paramètres qui permettent de régler le modèle e
 - la technique de descente de gradient pour utiliser [Adam](https://fr.wikipedia.org/wiki/Algorithme_du_gradient_stochastique#Adam) plutôt qu'une descente de gradient classique : cette technique applique un taux d'apprentissage adaptatif
 
 `uv run learn-gpt neuron co2 --help` pour voir comment influer sur ces hyperparamètres.
+
+## Prédire du texte
+
+### Représenter le texte sous forme de nombres
+
+Nous allons commencer par essayer de générer des noms d'animaux en entraînant un modèle sur une liste de noms d'animaux. Dans un premier temps, nous allons créer un modèle qui prédit le caractère suivant en fonction des caractères précédents.
+
+Les réseaux de neurones ne travaillant que sur des nombres, il nous faut un moyen de transformer du texte en nombres. Pour cela, nous allons d'abord utiliser un **tokenizer** qui va transformer chaque caractère en un entier qui représente l'identifiant du **token**. Le nombre de tokens que connaît un tokenizer est sa taille de vocabulaire (`vocab_size`).
+
+```
+'chat' -> [5, 9, 3, 17]
+```
+
+Chaque token est une **classe** au sens de l'apprentissage automatique. Contrairement à notre exemple sur les émissions de CO₂, notre modèle ne va pas prédire une valeur mais va calculer, parmi un ensemble de classes, la probabilité de chaque classe.
+
+Nous allons ensuite associer à chaque token un vecteur de nombre, l'**[embedding](https://fr.wikipedia.org/wiki/Word_embedding)**, via une matrice d'embedding de taille `(vocab_size, embedding_dim)` où `embedding_dim` est la taille souhaitée des vecteurs représentant les tokens. Par exemple, pour une taille d'embedding de 4, on pourrait avoir :
+
+```
+'c' -> 5 -> [ 0.5988, -1.5551, -0.3414,  1.8530]
+```
+
+Cette matrice d'embedding est composée de `vocab_size x embedding_dim` poids qui seront ajustés pendant l'entraînement : elle apprend la bonne représentation des caractères pour permettre au réseau de faire son travail de prédiction. Deux caractères proches du point de vue de la prédiction (c'est-à-dire qui arrivent souvent après le même enchaînement de caractères) auront des vecteurs proches.
+
+Pour visualiser ces opérations de traitement des mots : `uv run learn-gpt text show`.

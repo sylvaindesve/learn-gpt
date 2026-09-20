@@ -45,3 +45,5 @@ select = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["learn_gpt"]
+# Regroupe les imports aliasés d'un même module sur une seule instruction
+combine-as-imports = true
