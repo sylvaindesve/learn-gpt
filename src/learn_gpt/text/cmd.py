@@ -1,8 +1,14 @@
+from pathlib import Path
+
 import torch
 from torch import nn
 
+from learn_gpt.commons.plotting import plt, save_figure
 from learn_gpt.commons.print_helpers import print_indented, print_new_line, print_title
+from learn_gpt.text.models import CharacterModel, top_next_tokens, train
 from learn_gpt.text.tokenizer import CharTokenizer
+
+OUTPUT_DIR = Path.cwd() / "output" / "text"
 
 # La liste de noms d'animaux pour cette section
 MOTS = [
@@ -97,3 +103,81 @@ def cmd_loss() -> None:
     target_class = 2  # La 3ème classe est la bonne réponse
     loss = -torch.log(probs[target_class])
     print_indented(f"Perte si la bonne classe est la 3ème : {loss.item():.3f}", 2)
+
+
+def cmd_v1(*, embedding_dim: int, lr: float, epochs: int, filename: str) -> None:
+    print_title("Entraîner et tester le modèle v1")
+    print_indented("Un modèle qui prédit le prochain caractère", 1)
+    print_new_line()
+
+    print_indented("Création du tokenizer", 1)
+    tokenizer = CharTokenizer.train("".join(MOTS))
+    print_indented(f"vocab_size = {len(tokenizer.vocab)}", 2)
+    print_new_line()
+
+    print_indented("Instanciation du modèle", 1)
+    torch.manual_seed(0)
+    char_model = CharacterModel(len(tokenizer.vocab), embedding_dim)
+    print_indented(
+        f"Nombre de paramètres = {sum(p.numel() for p in char_model.parameters())}", 2
+    )
+    print_new_line()
+
+    print_indented("Préparation des données d'entraînement", 1)
+
+    xs: list[int] = []
+    ys: list[int] = []
+    # Pour chaque mot du corpus
+    for mot in MOTS:
+        token_ids = tokenizer.encode(mot, add_special=False)
+        xs += token_ids[:-1]  # Tous sauf le dernier
+        ys += token_ids[1:]  # Tous sauf le premier (décalage de 1)
+
+    print_indented(f"Nombre de paires (id token, id token suivant): {len(xs)}", 2)
+    pairs = [
+        (tokenizer.decode([i]), tokenizer.decode([j]))
+        for i, j in zip(xs[:8], ys[:8], strict=True)
+    ]
+    print_indented(f"Premières paires: {pairs}", 2)
+
+    # On construit nos données d'entraînement
+    x = torch.tensor(xs)
+    y = torch.tensor(ys)
+
+    print_new_line()
+
+    print_indented("Entraînement ...", 1)
+    loss_history = train(
+        char_model,
+        x,
+        y,
+        lr=lr,
+        epochs=epochs,
+        logger=lambda s: print_indented(s, 2),
+    )
+    print_indented("Entraînement terminé", 1)
+    print_indented(f"Perte finale = {loss_history[-1]:.2f}", 2)
+    print_new_line()
+
+    print_indented("Création de la visualisation de la courbe d'apprentissage", 1)
+    filepath = OUTPUT_DIR / filename
+    plt.figure()
+    plt.plot(loss_history)
+    plt.xlabel("Époque")
+    plt.ylabel("Entropie croisée")
+    plt.title(
+        f"Courbe d'apprentissage du modèle v1 (taille des embedding = {embedding_dim}, "
+        f"{epochs} époques, lr={lr})"
+    )
+    plt.grid(True)
+    save_figure(filepath)
+    print_indented(f"Courbe d'apprentissage créée sous {filepath}", 2)
+    print_new_line()
+
+    print_indented("Prédictions du modèle entraîné:", 1)
+
+    for c in ["c", "s", "t"]:
+        tops = top_next_tokens(char_model, tokenizer.encode(c, add_special=False)[0])
+        print_indented(
+            f"Après '{c}': {[(tokenizer.decode([i]), prob) for i, prob in tops]}", 2
+        )

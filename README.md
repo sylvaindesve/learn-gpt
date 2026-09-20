@@ -219,3 +219,11 @@ Pour chaque logit sa probabilité est donc son exponentielle divisée par la som
 On calcule la perte en faisant $-log(p)$ où $p$ est la probabilité attribuée par le modèle à la classe attendue : si cette probabilité est élevée (le modèle avait bien vu), la perte est faible. Si la probabilité de la classe attendue est faible, la perte explose. C'est ce qu'on appelle l'[entropie croisée](https://fr.wikipedia.org/wiki/Entropie_croisée).
 
 Pour visualiser ces calculs de perte : `uv run learn-gpt text loss`.
+
+### v1 : prédire le prochain caractère
+
+Avec ces éléments, nous pouvons construire un premier modèle pour prédire le caractère suivant. Ce premier modèle n'aura qu'un seul caractère de contexte.
+
+Pour entraîner ce modèle, nous allons construire pour chaque mot les paires **(caractère, caractère suivant)** puis nous donnerons au modèle les **caractères** et calculerons la perte par rapport aux **caractères suivants**.
+
+Le modèle et le code d'entraînement sont dans [src/learn_gpt/text/models.py](./src/learn_gpt/text/models.py). La commande pour lancer l'entraînement et visualiser quelques prédictions est `uv run learn-gpt text v1`. La courbe d'apprentissage sera visible dans [output/text/v1_learn.png](./output/text/v1_learn.png). `uv run learn-gpt text v1 --help` pour voir les paramètres sur lesquels il est possible d'influer.
