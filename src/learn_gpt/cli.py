@@ -13,7 +13,7 @@ from learn_gpt.neuron.cmd import (
     cmd_neuron as neuron_cmd_neuron,
     cmd_parabola as neuron_cmd_parabola,
 )
-from learn_gpt.text.cmd import cmd_show as text_cmd_show
+from learn_gpt.text.cmd import cmd_loss as text_cmd_loss, cmd_show as text_cmd_show
 
 Handler = Callable[[argparse.Namespace], int]
 
@@ -104,8 +104,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # Sous-sous-commande pour voir la représentation de texte avec des nombres
-    text_show = text_sub.add_parser("show", help="texte sous forme de nombres")
+    text_show = text_sub.add_parser("show", help="transformer du texte en nombres")
     text_show.set_defaults(handler=cmd_text_show)
+
+    # Sous-sous-commande pour voir le calcul de perte sur du texte
+    text_loss = text_sub.add_parser("loss", help="calculer la perte sur du texte")
+    text_loss.set_defaults(handler=cmd_text_loss)
 
     return parser
 
@@ -269,6 +273,11 @@ def cmd_neuron_co2(args: argparse.Namespace) -> int:
 
 def cmd_text_show(_args: argparse.Namespace) -> int:
     text_cmd_show()
+    return 0
+
+
+def cmd_text_loss(_args: argparse.Namespace) -> int:
+    text_cmd_loss()
     return 0
 
 

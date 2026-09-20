@@ -201,3 +201,21 @@ Nous allons ensuite associer à chaque token un vecteur de nombre, l'**[embeddin
 Cette matrice d'embedding est composée de `vocab_size x embedding_dim` poids qui seront ajustés pendant l'entraînement : elle apprend la bonne représentation des caractères pour permettre au réseau de faire son travail de prédiction. Deux caractères proches du point de vue de la prédiction (c'est-à-dire qui arrivent souvent après le même enchaînement de caractères) auront des vecteurs proches.
 
 Pour visualiser ces opérations de traitement des mots : `uv run learn-gpt text show`.
+
+### Calculer la perte
+
+Le modèle que nous allons construire produit en sortie `vocab_size` **logits** : un score pour chaque classe (i.e. chaque token du vocabulaire). Sur un exemple simplifié à 3 classes :
+
+```
+logits: [1.0, 3.0, 0.5] → la classe la plus probable est la 2ème
+```
+
+Ces logits sont transformés en une distribution de probabilités avec la fonction [softmax](https://fr.wikipedia.org/wiki/Fonction_softmax) :
+
+$$\sigma(z)_j = \frac {e^{z_j}} {\sum_{k=1}^{K}e^{z_k}} \text{pour tout }j \in \{1,...,K\}$$
+
+Pour chaque logit sa probabilité est donc son exponentielle divisée par la somme des exponentielles de tous les logits. Ces probabilités sont comprises entre 0 et 1 et leur somme vaut 1.
+
+On calcule la perte en faisant $-log(p)$ où $p$ est la probabilité attribuée par le modèle à la classe attendue : si cette probabilité est élevée (le modèle avait bien vu), la perte est faible. Si la probabilité de la classe attendue est faible, la perte explose. C'est ce qu'on appelle l'[entropie croisée](https://fr.wikipedia.org/wiki/Entropie_croisée).
+
+Pour visualiser ces calculs de perte : `uv run learn-gpt text loss`.

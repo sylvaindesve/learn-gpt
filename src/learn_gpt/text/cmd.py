@@ -25,6 +25,16 @@ MOTS = [
 ]
 
 
+# Softmax pour obtenir une distribution de probabilités
+# à partir de logits
+# Pour la suite, nous utiliserons plutôt les fonctions proposées
+# par PyTorch, notamment nn.CrossEntropyLoss() qui fait le softmax
+# et le -log(p)
+def softmax(logits: torch.Tensor) -> torch.Tensor:
+    e = torch.exp(logits - logits.max())  # On décale pour éviter les débordements
+    return e / e.sum()
+
+
 def cmd_show() -> None:
     print_title("Représenter les mots sous forme de nombres")
     print_new_line()
@@ -59,3 +69,31 @@ def cmd_show() -> None:
     c_tensor = torch.tensor(tokenizer.encode("c", add_special=False))
     wte = nn.Embedding(len(tokenizer.vocab), 4)
     print_indented(f"Embedding pour 'c': {wte(c_tensor).tolist()}", 2)
+
+
+def cmd_loss() -> None:
+    print_title("Calculer la perte sur du texte")
+    print_new_line()
+
+    logits = torch.tensor([1.0, 3.0, 0.5])
+    print_indented(
+        f"logits: {logits.tolist()} → la 2ème classe a le plus haut score, "
+        f"c'est ce que le modèle prédirait",
+        2,
+    )
+
+    probs = softmax(logits)
+    print_indented(
+        "Distribution des probabilités selon le modèle (softmax): "
+        f"{[round(p, 3) for p in probs.tolist()]}",
+        2,
+    )
+
+    # La perte ne dépend que de la classe attendue
+    target_class = 1  # La 2ème classe est la bonne réponse
+    loss = -torch.log(probs[target_class])
+    print_indented(f"Perte si la bonne classe est la 2ème : {loss.item():.3f}", 2)
+
+    target_class = 2  # La 3ème classe est la bonne réponse
+    loss = -torch.log(probs[target_class])
+    print_indented(f"Perte si la bonne classe est la 3ème : {loss.item():.3f}", 2)
