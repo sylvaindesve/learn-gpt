@@ -161,7 +161,6 @@ class AttentionLayer(nn.Module):
         # un vecteur pour chaque position de chaque séquence
         q, k, v = self.wq(x), self.wk(x), self.wv(x)
 
-        block_size = x.shape[1]
         embedding_dim = x.shape[-1]
 
         # Calcul des scores par produit matriciel de q par k,
@@ -171,16 +170,6 @@ class AttentionLayer(nn.Module):
         #   et donc scores est de dimensions (n, block_size, block_size) :
         #   chaque position regarde chaque position
         scores = q @ k.transpose(1, 2) / (embedding_dim**0.5)
-
-        # Masque du triangle strictement supérieur : une position n'a pas le droit
-        # de regarder une position future. C'est la règle du jeu de la prédiction :
-        # à la génération, les tokens suivants n'existent pas encore, donc le modèle
-        # doit apprendre à prédire avec le passé seul (sinon il lirait la réponse).
-        # Note : sans effet tant que l'on ne renvoie que la dernière position
-        # (elle voit déjà tout le bloc) ; deviendra indispensable quand la perte
-        # sera calculée à toutes les positions, comme dans un vrai GPT.
-        mask = torch.triu(torch.ones(block_size, block_size), diagonal=1).bool()
-        scores = scores.masked_fill(mask, float("-inf"))
 
         # Un softmax pour que les poids soient entre 0 et 1 et aient une somme de 1
         #   dim=-1 pour que le softmax s'applique sur la dernière dimension, i.e. la
