@@ -1,3 +1,5 @@
+from collections import Counter
+from math import log
 from pathlib import Path
 
 import torch
@@ -64,6 +66,31 @@ def to_train_data(
             ys.append(padded[i + block_size])
 
     return xs, ys
+
+
+# Perte minimale que l'on peut atteindre sur un jeu de données : l'entropie
+# conditionnelle empirique de la cible sachant le contexte.
+# Un contexte qui mène toujours au même token n'apporte aucune incertitude.
+# Un contexte ambigu, comme [<bos>, c, h] qui peut être suivi de 'a' (chat)
+# ou de 'i' (chien), en apporte : aucun modèle ne peut prédire mieux que la
+# distribution observée dans le corpus.
+def loss_floor(xs: list[list[int]], ys: list[int]) -> float:
+    # Pour chaque contexte, la distribution des tokens qui le suivent
+    counts_by_context: dict[tuple[int, ...], Counter[int]] = {}
+    for context, target in zip(xs, ys, strict=True):
+        counts_by_context.setdefault(tuple(context), Counter())[target] += 1
+
+    total = len(xs)
+    floor = 0.0
+
+    for counts in counts_by_context.values():
+        n = sum(counts.values())
+        # Entropie de la distribution des cibles pour ce contexte
+        entropy = -sum((c / n) * log(c / n) for c in counts.values())
+        # Pondérée par la fréquence du contexte dans le jeu de données
+        floor += (n / total) * entropy
+
+    return floor
 
 
 # Softmax pour obtenir une distribution de probabilités
@@ -408,3 +435,90 @@ def cmd_v3(
     for _ in range(10):
         tokens = attn_char_model.generate(BOS_ID, EOS_ID, temperature=0.4)
         print_indented(tokenizer.decode(tokens), 3)
+
+
+def cmd_v2_v3(*, lr: float, epochs: int) -> None:
+    print_title("Comparaison des modèles v2 et v3")
+    print_indented("Ce que l'attention change", 1)
+    print_new_line()
+
+    print_indented("Création du tokenizer", 1)
+    tokenizer = CharTokenizer.train("".join(MOTS))
+    print_indented(f"vocab_size = {len(tokenizer.vocab)}", 2)
+    print_new_line()
+
+    # Résultats de l'entraînement des modèles
+    results: list[tuple[int, int, str, int, float, float]] = []
+
+    print_indented("Entraînement des modèles ...", 1)
+
+    for block_size in [3, 5]:
+        xs, ys = to_train_data(MOTS, block_size, tokenizer, BOS_ID)
+        x = torch.tensor(xs)
+        y = torch.tensor(ys)
+        floor = loss_floor(xs, ys)
+
+        for embedding_dim in [8, 32]:
+            print_indented(f"block_size={block_size}, embedding_dim={embedding_dim}", 2)
+
+            # On pose la graine avant chaque modèle pour qu'une configuration
+            # ne dépende pas de celles qui ont été entraînées avant elle
+            torch.manual_seed(0)
+            ctx_char_model = ContextCharacterModel(
+                len(tokenizer.vocab), embedding_dim, block_size, 64
+            )
+            ctx_loss_history = train(ctx_char_model, x, y, lr=lr, epochs=epochs)
+
+            torch.manual_seed(0)
+            attn_char_model = AttentionCharacterModel(
+                len(tokenizer.vocab), embedding_dim, block_size
+            )
+            attn_loss_history = train(attn_char_model, x, y, lr=lr, epochs=epochs)
+
+            # La v2 puis la v3, côte à côte pour la même configuration
+            results.append(
+                (
+                    block_size,
+                    embedding_dim,
+                    "v2",
+                    sum(p.numel() for p in ctx_char_model.parameters()),
+                    ctx_loss_history[-1],
+                    floor,
+                )
+            )
+            results.append(
+                (
+                    block_size,
+                    embedding_dim,
+                    "v3",
+                    sum(p.numel() for p in attn_char_model.parameters()),
+                    attn_loss_history[-1],
+                    floor,
+                )
+            )
+
+    # Colonnes de largeur fixe pour que le tableau reste aligné
+    print_new_line()
+    header = (
+        f"{'Contexte':<9}{'Emb.':<7}{'Modèle':<8}"
+        f"{'Paramètres':>11}{'Perte':>9}{'Plancher':>10}"
+    )
+    print_indented(header, 1)
+    print_indented("-" * len(header), 1)
+
+    for block_size, embedding_dim, name, n_parameters, loss, floor in results:
+        print_indented(
+            f"{'b=' + str(block_size):<9}{'d=' + str(embedding_dim):<7}"
+            f"{name:<8}{n_parameters:>11}{loss:>9.3f}{floor:>10.3f}",
+            1,
+        )
+
+    print_new_line()
+    print_indented("(b = block_size, d = embedding_dim)", 1)
+    print_indented("La v2 a une couche cachée de 64 neurones, la v3 n'en a pas.", 1)
+    print_indented(
+        "Le plancher est la perte d'un modèle qui prédirait exactement la", 1
+    )
+    print_indented(
+        "distribution observée dans le corpus : on ne peut pas faire mieux.", 1
+    )

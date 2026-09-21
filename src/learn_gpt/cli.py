@@ -18,6 +18,7 @@ from learn_gpt.text.cmd import (
     cmd_show as text_cmd_show,
     cmd_v1 as text_cmd_v1,
     cmd_v2 as text_cmd_v2,
+    cmd_v2_v3 as text_cmd_v2_v3,
     cmd_v3 as text_cmd_v3,
 )
 
@@ -147,6 +148,12 @@ def build_parser() -> argparse.ArgumentParser:
     _add_epochs_argument(text_v3, default=600)
     _add_learning_curve_filename_argument(text_v3, default="v3_learn.png")
     text_v3.set_defaults(handler=cmd_text_v3)
+
+    # Sous-sous-commande pour comparer les performances des modèles v2 et v3
+    text_v2_v3 = text_sub.add_parser("v2v3", help="comparer les modèles v2 et v3")
+    _add_lr_argument(text_v2_v3, default=0.01)
+    _add_epochs_argument(text_v2_v3, default=600)
+    text_v2_v3.set_defaults(handler=cmd_text_v2_v3)
 
     return parser
 
@@ -380,6 +387,11 @@ def cmd_text_v3(args: argparse.Namespace) -> int:
         epochs=args.epochs,
         filename=args.filename,
     )
+    return 0
+
+
+def cmd_text_v2_v3(args: argparse.Namespace) -> int:
+    text_cmd_v2_v3(lr=args.lr, epochs=args.epochs)
     return 0
 
 
