@@ -250,4 +250,94 @@ La fonction d'entraînement est inchangée et le modèle v2 est la classe `Conte
 
 `uv run learn-gpt text v2` pour l'entraînement et la génération, `uv run learn-gpt text v2 --help` pour voir les réglages possibles. La courbe d'apprentissage sera visible dans [output/text/v2_learn.png](./output/text/v2_learn.png).
 
-L'ajout de cette fenêtre de contexte fait baisser la perte de **1,58** à **0,43** et le noms d'animaux générés, quand ils ne sont pas exactement ceux du corpus, sont des noms crédibles.
+L'ajout de cette fenêtre de contexte fait baisser la perte de **1,58** à **0,43** et les noms d'animaux générés, quand ils ne sont pas exactement ceux du corpus, sont des noms crédibles.
+
+### v3 : calcul d'attention
+
+Le modèle v2 voit plus de contexte mais il apporte la même importance à chaque token de ce contexte. Par ailleurs, l'entrée de la couche cachée est de taille `block_size x embedding_dim` : le nombre de paramètres du modèle augmente fortement avec la taille du contexte.
+
+Nous allons ajouter un mécanisme d'attention. Chaque position du contexte émet 3 vecteurs :
+
+| Vecteur   | Objectif                         |
+|-----------|----------------------------------|
+| Query (Q) | Ce que je cherche                |
+| Key (K)   | Ce que je contiens               |
+| Value (V) | Ce que j'offre si je suis choisi |
+
+Puis, pour chaque position :
+
+- la **query** de la position est comparée aux **keys** de toutes les positions, ce qui donne un **score** de correspondance
+- les scores sont passés au travers de *softmax* pour obtenir des **poids d'attention** dont la somme est 1
+- la sortie est la somme pondérée des **values**
+
+Ainsi, chaque position reçoit un mélange des **values** des autres positions pondéré par les poids de correspondances entre les **queries** et les **keys**.
+
+Prenons une taille de contexte de `block_size = 3` et une taille d'embedding de `embedding_dim = 2` et les matrices Q, K, V suivantes :
+
+$$
+Q = \begin{pmatrix}
+1 & 0\\
+0 & 1\\
+1 & 1
+\end{pmatrix},
+K = \begin{pmatrix}
+1 & 0\\
+0 & 1\\
+1 & 1
+\end{pmatrix},
+V = \begin{pmatrix}
+10 & 0\\
+0 & 10\\
+5 & 5
+\end{pmatrix}
+$$
+
+Dans cette configuration, $Q$ indique que :
+
+- la première position s'intéresse exclusivement à ce que contient le premier axe
+- la deuxième exclusivement au deuxième axe
+- la troisième aux deux
+
+De même, $K$ indique que :
+
+- la première position est projetée sur le premier axe
+- la deuxième sur le deuxième
+- la troisième sur les deux
+
+Le score est le produit matriciel de $Q$ par la transposée de $K$, le tout divisé par la racine carrée de la dimension des **queries** et des **keys** (ici 2) pour éviter d'exploser quand la dimension grandit. On applique ensuite *softmax* et on fait un produit matriciel par $V$ pour obtenir la sortie
+
+$$\text{Attention}(Q, K, V) = \text{softmax} \left ( \frac{Q \cdot K^T}{\sqrt{d}} \right ) \cdot V$$
+
+Sur notre exemple, le résultat avant produit matriciel par $V$ donne (aux arrondis près) :
+
+$$
+\begin{pmatrix}
+0.4 & 0.2 & 0.4 \\
+0.2 & 0.4 & 0.4 \\
+0.25 & 0.25 & 0.5
+\end{pmatrix}
+$$
+
+La première position cherche le premier axe qui est projeté par les positions 1 et 3. On retrouve donc les poids les plus importants en position 1 et 3.
+
+La sortie de la couche, suite au produit matriciel par $V$ donne (aux arrondis près) :
+
+$$
+\begin{pmatrix}
+6 & 4 \\
+4 & 6 \\
+5 & 5
+\end{pmatrix}
+$$
+
+Le $\begin{pmatrix}10 & 0\end{pmatrix}$ de la première position se retrouve mélangé en $\begin{pmatrix}6 & 4\end{pmatrix}$.
+
+**Un mot sur l'ordre.** Le calcul d'attention est une somme sur les positions : si l'on permute les tokens du contexte, on permute les termes de cette somme et le résultat est identique. Sans information supplémentaire, l'attention ne voit donc pas une séquence mais un ensemble de tokens, et `cha` et `hca` donneraient exactement la même sortie. Le modèle v2 n'avait pas ce problème : en mettant les embeddings bout à bout, chaque token occupait une tranche distincte du vecteur d'entrée et l'ordre était porté par la structure même des données.
+
+La v3 ajoute donc un second embedding, l'**embedding de position** : à chaque position de la fenêtre correspond un vecteur appris, que l'on ajoute à l'embedding du token.
+
+Le modèle `AttentionCharacterModel` de [src/learn_gpt/text/models.py](./src/learn_gpt/text/models.py) implémente ce mécanisme et s'affranchit (pour le moment) d'une couche cachée. Dans le modèle, ces trois matrices ne sont pas données mais calculées à partir des embeddings par trois couches linéaires sans biais, une par rôle. Lors de l'entraînement, ces couches vont apprendre les poids qui permettent de faire le bon mélange. La commande `uv run learn-gpt text v3` permet d'entraîner ce modèle et de générer des noms d'animaux. `uv run learn-gpt text v3 --help` décrit les réglages possibles. La courbe d'apprentissage sera visible dans [output/text/v3_learn.png](./output/text/v3_learn.png).
+
+On constate que ce modèle v3 est moins performant que le modèle v2. Cependant, son nombre de paramètres ne grandit pas fortement avec la taille du contexte. On verra dans l'itération suivante comment récupérer cette performance.
+
+La commande `uv run learn-gpt text v2v3` permet de comparer les deux modèles dans différentes configurations. Cette commande introduit également la notion de **plancher** : la perte minimale que l'on peut atteindre sur un jeu de données.
