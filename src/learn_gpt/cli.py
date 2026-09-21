@@ -18,6 +18,7 @@ from learn_gpt.text.cmd import (
     cmd_show as text_cmd_show,
     cmd_v1 as text_cmd_v1,
     cmd_v2 as text_cmd_v2,
+    cmd_v3 as text_cmd_v3,
 )
 
 Handler = Callable[[argparse.Namespace], int]
@@ -125,7 +126,9 @@ def build_parser() -> argparse.ArgumentParser:
     text_v1.set_defaults(handler=cmd_text_v1)
 
     # Sous-sous-commande pour entraîner un modèle v2 avec fenêtre de contexte
-    text_v2 = text_sub.add_parser("v2", help="entraîner et tester un modèle v2")
+    text_v2 = text_sub.add_parser(
+        "v2", help="entraîner et tester un modèle v2 (contexte)"
+    )
     _add_embedding_dim_argument(text_v2, default=8)
     _add_block_size_argument(text_v2, default=3)
     _add_layer_size_argument(text_v2, default=64)
@@ -133,6 +136,17 @@ def build_parser() -> argparse.ArgumentParser:
     _add_epochs_argument(text_v2, default=100)
     _add_learning_curve_filename_argument(text_v2, default="v2_learn.png")
     text_v2.set_defaults(handler=cmd_text_v2)
+
+    # Sous-sous-commande pour entraîner un modèle v3 avec calcul d'attention
+    text_v3 = text_sub.add_parser(
+        "v3", help="entraîner et tester un modèle v3 (attention)"
+    )
+    _add_embedding_dim_argument(text_v3, default=8)
+    _add_block_size_argument(text_v3, default=3)
+    _add_lr_argument(text_v3, default=0.01)
+    _add_epochs_argument(text_v3, default=600)
+    _add_learning_curve_filename_argument(text_v3, default="v3_learn.png")
+    text_v3.set_defaults(handler=cmd_text_v3)
 
     return parser
 
@@ -172,11 +186,19 @@ def _add_embedding_dim_argument(
     )
 
 
+# Contrôle sur --block
+def _block_size(value: str) -> int:
+    block_size = int(value)
+    if block_size < 1:
+        raise argparse.ArgumentTypeError("block_size doit être au moins 1")
+    return block_size
+
+
 # Ajoute un argument sur la taille de la fenêtre de contexte
 def _add_block_size_argument(parser: argparse.ArgumentParser, default: int = 3) -> None:
     parser.add_argument(
         "--block",
-        type=int,
+        type=_block_size,
         default=default,
         metavar="N",
         help="taille de la fenêtre de contexte (défaut : %(default)s)",
@@ -343,6 +365,17 @@ def cmd_text_v2(args: argparse.Namespace) -> int:
         embedding_dim=args.embedding,
         block_size=args.block,
         layer_size=args.layersize,
+        lr=args.lr,
+        epochs=args.epochs,
+        filename=args.filename,
+    )
+    return 0
+
+
+def cmd_text_v3(args: argparse.Namespace) -> int:
+    text_cmd_v3(
+        embedding_dim=args.embedding,
+        block_size=args.block,
         lr=args.lr,
         epochs=args.epochs,
         filename=args.filename,

@@ -5,7 +5,12 @@ from torch import nn
 
 from learn_gpt.commons.plotting import plt, save_figure, set_title
 from learn_gpt.commons.print_helpers import print_indented, print_new_line, print_title
-from learn_gpt.text.models import CharacterModel, ContextCharacterModel, train
+from learn_gpt.text.models import (
+    AttentionCharacterModel,
+    CharacterModel,
+    ContextCharacterModel,
+    train,
+)
 from learn_gpt.text.tokenizer import BOS_ID, EOS_ID, CharTokenizer
 
 OUTPUT_DIR = Path.cwd() / "output" / "text"
@@ -29,6 +34,36 @@ MOTS = [
     "sanglier",
     "blaireau",
 ]
+
+
+# Encode les mots puis les découpe en fenêtres glissantes de taille
+# block_size (nécessaire à partir de la v2).
+# Renvoie la liste des fenêtres et la liste des tokens qui viennent
+# après
+def to_train_data(
+    words: list[str], block_size: int, tokenizer: CharTokenizer, bos_id: int
+) -> tuple[list[list[int]], list[int]]:
+    # Chaque exemple est une liste de block_size tokens
+    xs: list[list[int]] = []
+    ys: list[int] = []
+
+    # Pour chaque mot du corpus
+    for word in words:
+        # Mot encadré par <bos> et <eos>
+        token_ids = tokenizer.encode(word)
+
+        # On ajoute (block_size - 1) <bos> à gauche
+        # Par exemple avec block_size = 3, ça donne
+        # [<bos>, <bos>, <bos>, c, h, a, t, <eos>]
+        padded = [bos_id] * (block_size - 1) + token_ids
+
+        for i in range(len(padded) - block_size):
+            # x contient les blocs successifs de block_size tokens
+            xs.append(padded[i : i + block_size])
+            # y est le token qui vient juste après
+            ys.append(padded[i + block_size])
+
+    return xs, ys
 
 
 # Softmax pour obtenir une distribution de probabilités
@@ -211,9 +246,6 @@ def cmd_v2(
     epochs: int,
     filename: str,
 ) -> None:
-    if block_size < 1:
-        raise ValueError("block_size doit être au moins 1")
-
     print_title("Entraîner et tester le modèle v2")
     print_indented("Un modèle avec une fenêtre de contexte", 1)
     print_new_line()
@@ -239,24 +271,8 @@ def cmd_v2(
     print_indented(f"block_size = {block_size}", 2)
 
     # Cette fois, chaque exemple est une liste de block_size tokens
-    xs: list[list[int]] = []
-    ys: list[int] = []
-
-    # Pour chaque mot du corpus
-    for mot in MOTS:
-        # Mot encadré par <bos> et <eos>
-        token_ids = tokenizer.encode(mot)
-
-        # On ajoute (block_size - 1) <bos> à gauche
-        # Par exemple avec block_size = 3, ça donne
-        # [<bos>, <bos>, <bos>, c, h, a, t, <eos>]
-        padded = [BOS_ID] * (block_size - 1) + token_ids
-
-        for i in range(len(padded) - block_size):
-            # x contient les blocs successifs de block_size tokens
-            xs.append(padded[i : i + block_size])
-            # y est le token qui vient juste après
-            ys.append(padded[i + block_size])
+    # et les cibles sont les tokens qui viennent après
+    xs, ys = to_train_data(MOTS, block_size, tokenizer, BOS_ID)
 
     print_indented("Extraits:", 2)
     for i in range(5):
@@ -311,4 +327,84 @@ def cmd_v2(
     print_indented("Avec température T=0.4:", 2)
     for _ in range(10):
         tokens = context_char_model.generate(BOS_ID, EOS_ID, temperature=0.4)
+        print_indented(tokenizer.decode(tokens), 3)
+
+
+def cmd_v3(
+    *,
+    embedding_dim: int,
+    block_size: int,
+    lr: float,
+    epochs: int,
+    filename: str,
+) -> None:
+    print_title("Entraîner et tester le modèle v3")
+    print_indented("Un modèle avec calcul d'attention", 1)
+    print_new_line()
+
+    print_indented("Création du tokenizer", 1)
+    tokenizer = CharTokenizer.train("".join(MOTS))
+    print_indented(f"vocab_size = {len(tokenizer.vocab)}", 2)
+    print_new_line()
+
+    print_indented("Instanciation du modèle", 1)
+    torch.manual_seed(0)
+    attn_char_model = AttentionCharacterModel(
+        len(tokenizer.vocab),
+        embedding_dim,
+        block_size,
+    )
+    n_parameters = sum(p.numel() for p in attn_char_model.parameters())
+    print_indented(f"Nombre de paramètres = {n_parameters}", 2)
+    print_new_line()
+
+    print_indented("Préparation des données d'entraînement", 1)
+    print_indented(f"block_size = {block_size}", 2)
+
+    xs, ys = to_train_data(MOTS, block_size, tokenizer, BOS_ID)
+    x = torch.tensor(xs)
+    y = torch.tensor(ys)
+
+    print_new_line()
+
+    print_indented("Entraînement ...", 1)
+    loss_history = train(
+        attn_char_model,
+        x,
+        y,
+        lr=lr,
+        epochs=epochs,
+        logger=lambda s: print_indented(s, 2),
+    )
+    print_indented("Entraînement terminé", 1)
+    print_indented(f"Perte finale = {loss_history[-1]:.2f}", 2)
+    print_new_line()
+
+    print_indented("Création de la visualisation de la courbe d'apprentissage", 1)
+    filepath = OUTPUT_DIR / filename
+    plt.figure()
+    plt.plot(loss_history)
+    plt.xlabel("Époque")
+    plt.ylabel("Entropie croisée")
+    set_title(
+        "Courbe d'apprentissage du modèle v3",
+        f"embeddings = {embedding_dim}, contexte = {block_size}, "
+        f"{epochs} époques, lr={lr}",
+    )
+    plt.grid(True)
+    save_figure(filepath)
+    print_indented(f"Courbe d'apprentissage créée sous {filepath}", 2)
+    print_new_line()
+
+    print_indented("Génération avec le modèle entraîné:", 1)
+    torch.manual_seed(42)  # Reproductibilité
+
+    print_indented("Avec température T=0.8:", 2)
+    for _ in range(10):
+        tokens = attn_char_model.generate(BOS_ID, EOS_ID, temperature=0.8)
+        print_indented(tokenizer.decode(tokens), 3)
+
+    print_indented("Avec température T=0.4:", 2)
+    for _ in range(10):
+        tokens = attn_char_model.generate(BOS_ID, EOS_ID, temperature=0.4)
         print_indented(tokenizer.decode(tokens), 3)
