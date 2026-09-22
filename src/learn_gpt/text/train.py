@@ -52,14 +52,43 @@ def train(
     return loss_history
 
 
-# Choisit au hasard n_samples échantillons de block_size tokens dans le stream
-def sample(
-    stream: list[int], n_samples: int, block_size: int
+# Construit les fenêtres (contexte, cible) qui commencent aux positions données
+def windows_at(
+    stream: list[int], starts: list[int], block_size: int
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    starts = torch.randint(0, len(stream) - block_size, (n_samples,))
     x = torch.tensor([stream[i : i + block_size] for i in starts])
     y = torch.tensor([stream[i + 1 : i + block_size + 1] for i in starts])
     return x, y
+
+
+# Choisit au hasard n_samples fenêtres de block_size tokens dans le flux
+def sample(
+    stream: list[int], n_samples: int, block_size: int
+) -> tuple[torch.Tensor, torch.Tensor]:
+    starts = torch.randint(0, len(stream) - block_size, (n_samples,)).tolist()
+    return windows_at(stream, starts, block_size)
+
+
+# Calcule la perte sur TOUTES les fenêtres du flux.
+# Un lot tiré au hasard ne contient que quelques fenêtres : sa perte est très
+# bruitée, et peut même passer sous le plancher du corpus, ce qui induit en
+# erreur. C'est cette mesure-ci qu'il faut regarder pour savoir où en est le
+# modèle.
+def evaluate_stream(
+    model: nn.Module,
+    stream: list[int],
+    vocab_size: int,
+    block_size: int,
+) -> float:
+    x, y = windows_at(stream, list(range(len(stream) - block_size)), block_size)
+
+    model.eval()
+    loss_fn = nn.CrossEntropyLoss()
+    with torch.no_grad():
+        logits = model(x)
+        loss = loss_fn(logits.reshape(-1, vocab_size), y.reshape(-1))
+
+    return float(loss.item())
 
 
 # Un entraînement avec calcul de perte sur toutes les positions

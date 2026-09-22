@@ -22,6 +22,7 @@ from learn_gpt.text.cmd import (
     cmd_v3 as text_cmd_v3,
     cmd_v4 as text_cmd_v4,
     cmd_v5 as text_cmd_v5,
+    cmd_v6 as text_cmd_v6,
 )
 
 Handler = Callable[[argparse.Namespace], int]
@@ -183,6 +184,18 @@ def build_parser() -> argparse.ArgumentParser:
     _add_steps_argument(text_v5, default=3000)
     _add_learning_curve_filename_argument(text_v5, default="v5_learn.png")
     text_v5.set_defaults(handler=cmd_text_v5)
+
+    # Sous-sous-commande pour entraîner un modèle v6 GPT complet
+    text_v6 = text_sub.add_parser("v6", help="entraîner et tester un modèle v6 (GPT)")
+    _add_embedding_dim_argument(text_v6, default=8)
+    _add_block_size_argument(text_v6, default=3)
+    _add_n_head_argument(text_v6, default=4)
+    _add_layers_argument(text_v6, default=2)
+    _add_lr_argument(text_v6, default=0.01)
+    _add_batch_size_argument(text_v6, default=16)
+    _add_steps_argument(text_v6, default=3000)
+    _add_learning_curve_filename_argument(text_v6, default="v6_learn.png")
+    text_v6.set_defaults(handler=cmd_text_v6)
 
     return parser
 
@@ -478,6 +491,20 @@ def cmd_text_v5(args: argparse.Namespace) -> int:
         block_size=args.block,
         n_head=args.head,
         with_mask=args.mask,
+        lr=args.lr,
+        batch_size=args.batch,
+        steps=args.steps,
+        filename=args.filename,
+    )
+    return 0
+
+
+def cmd_text_v6(args: argparse.Namespace) -> int:
+    text_cmd_v6(
+        embedding_dim=args.embedding,
+        block_size=args.block,
+        n_head=args.head,
+        n_layers=args.layers,
         lr=args.lr,
         batch_size=args.batch,
         steps=args.steps,

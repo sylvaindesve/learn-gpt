@@ -12,8 +12,9 @@ from learn_gpt.text.models.v2 import ContextCharacterModel
 from learn_gpt.text.models.v3 import AttentionCharacterModel
 from learn_gpt.text.models.v4 import MultiHeadAttentionCharacterModel
 from learn_gpt.text.models.v5 import StreamMultiHeadAttentionCharacterModel
+from learn_gpt.text.models.v6 import MicroGPTModel
 from learn_gpt.text.tokenizer import BOS_ID, EOS_ID, CharTokenizer
-from learn_gpt.text.train import train, train_stream
+from learn_gpt.text.train import evaluate_stream, train, train_stream
 
 OUTPUT_DIR = Path.cwd() / "output" / "text"
 
@@ -474,6 +475,84 @@ def cmd_v5(
     )
 
     print_generations(stream_multihead_char_model, tokenizer)
+
+
+def cmd_v6(
+    *,
+    embedding_dim: int,
+    block_size: int,
+    n_head: int,
+    n_layers: int,
+    lr: float,
+    batch_size: int,
+    steps: int,
+    filename: str,
+) -> None:
+    print_title("Entraîner et tester le modèle v6")
+    print_indented("Architecture GPT", 1)
+    print_new_line()
+
+    print_indented("Dimensionnement du modèle", 1)
+    print_indented(f"embedding_dim = {embedding_dim}", 2)
+    print_indented(f"n_head = {n_head}", 2)
+    print_indented(f"block_size = {block_size}", 2)
+    print_indented(f"n_layers = {n_layers}", 2)
+    print_new_line()
+
+    tokenizer = create_tokenizer()
+
+    print_indented("Instanciation du modèle", 1)
+    torch.manual_seed(0)
+    microGPT = MicroGPTModel(
+        len(tokenizer.vocab), embedding_dim, block_size, n_head, n_layers
+    )
+    print_parameters(microGPT)
+
+    print_indented("Préparation des données d'entraînement (flux)", 1)
+
+    stream = to_stream(MOTS, tokenizer)
+    print_indented(f"Taille du flux = {len(stream)} tokens", 2)
+
+    contexts, targets = stream_pairs(stream, block_size)
+    floor = loss_floor(contexts, targets)
+    print_indented(f"Plancher = {floor:.2f}", 2)
+
+    print_new_line()
+
+    print_indented("Entraînement ...", 1)
+    loss_history = train_stream(
+        microGPT,
+        stream,
+        len(tokenizer.vocab),
+        block_size,
+        lr=lr,
+        batch_size=batch_size,
+        steps=steps,
+        logger=lambda s: print_indented(s, 2),
+    )
+    print_indented("Entraînement terminé", 1)
+    print_indented(f"Perte du dernier lot = {loss_history[-1]:.2f}", 2)
+
+    # Le dernier lot ne contient que quelques fenêtres : sa perte est très
+    # bruitée. On évalue donc la perte sur tout le flux pour savoir où en est
+    # vraiment le modèle
+    stream_loss = evaluate_stream(microGPT, stream, len(tokenizer.vocab), block_size)
+    print_indented(
+        f"Perte sur tout le flux = {stream_loss:.2f} (plancher = {floor:.2f})", 2
+    )
+    print_new_line()
+
+    plot_learning_curve(
+        loss_history,
+        title="Courbe d'apprentissage du modèle v6",
+        context=f"embeddings = {embedding_dim}, contexte = {block_size}, "
+        f"têtes = {n_head}, couches = {n_layers}, "
+        f"{steps} étapes, lr={lr}",
+        filename=filename,
+        xlabel="Étape",
+    )
+
+    print_generations(microGPT, tokenizer)
 
 
 def cmd_v2_v3(*, lr: float, epochs: int) -> None:
