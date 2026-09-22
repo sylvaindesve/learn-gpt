@@ -233,7 +233,7 @@ Une fois le modèle entraîné, il peut être utilisé pour générer des mots. 
 
 Le prochain token est tiré aléatoirement en tenant compte de la distribution. On recommence alors avec ce token jusqu'à ce que le token `<eos>` soit tiré.
 
-Le modèle et le code de génération sont dans [src/learn_gpt/text/models.py](./src/learn_gpt/text/models.py), classe `CharacterModel`. La commande pour lancer l'entraînement (décrit dans [src/learn_gpt/text/train.py](./src/learn_gpt/text/train.py)), visualiser quelques prédictions et générer des mots est `uv run learn-gpt text v1`. La courbe d'apprentissage sera visible dans [output/text/v1_learn.png](./output/text/v1_learn.png). `uv run learn-gpt text v1 --help` pour voir les paramètres sur lesquels il est possible d'influer.
+Le modèle et le code de génération sont dans [src/learn_gpt/text/models/v1.py](./src/learn_gpt/text/models/v1.py). La commande pour lancer l'entraînement (décrit dans [src/learn_gpt/text/train.py](./src/learn_gpt/text/train.py)), visualiser quelques prédictions et générer des mots est `uv run learn-gpt text v1`. La courbe d'apprentissage sera visible dans [output/text/v1_learn.png](./output/text/v1_learn.png). `uv run learn-gpt text v1 --help` pour voir les paramètres sur lesquels il est possible d'influer.
 
 ### v2 : ajouter du contexte
 
@@ -246,7 +246,7 @@ Nous allons donc permettre au modèle de regarder en arrière au moyen d'une **f
 
 Gérer ce contexte ne change pas le nombre d'exemples sur le même corpus car on génère les exemples via une fenêtre glissante.
 
-La fonction d'entraînement est inchangée et le modèle v2 est la classe `ContextCharacterModel` dans [src/learn_gpt/text/models.py](./src/learn_gpt/text/models.py). La fonction de génération est légèrement différente car il faut fournir le contexte au modèle.
+La fonction d'entraînement est inchangée et le modèle v2 est dans [src/learn_gpt/text/models/v2.py](./src/learn_gpt/text/models/v2.py). La fonction de génération est légèrement différente car il faut fournir le contexte au modèle.
 
 `uv run learn-gpt text v2` pour l'entraînement et la génération, `uv run learn-gpt text v2 --help` pour voir les réglages possibles. La courbe d'apprentissage sera visible dans [output/text/v2_learn.png](./output/text/v2_learn.png).
 
@@ -336,7 +336,7 @@ Le $\begin{pmatrix}10 & 0\end{pmatrix}$ de la première position se retrouve mé
 
 La v3 ajoute donc un second embedding, l'**embedding de position** : à chaque position de la fenêtre correspond un vecteur appris, que l'on ajoute à l'embedding du token.
 
-Le modèle `AttentionCharacterModel` de [src/learn_gpt/text/models.py](./src/learn_gpt/text/models.py) implémente ce mécanisme et s'affranchit (pour le moment) d'une couche cachée. Dans le modèle, ces trois matrices ne sont pas données mais calculées à partir des embeddings par trois couches linéaires sans biais, une par rôle. Lors de l'entraînement, ces couches vont apprendre les poids qui permettent de faire le bon mélange. La commande `uv run learn-gpt text v3` permet d'entraîner ce modèle et de générer des noms d'animaux. `uv run learn-gpt text v3 --help` décrit les réglages possibles. La courbe d'apprentissage sera visible dans [output/text/v3_learn.png](./output/text/v3_learn.png).
+Le modèle dans [src/learn_gpt/text/models/v3.py](./src/learn_gpt/text/models/v3.py) implémente ce mécanisme et s'affranchit (pour le moment) d'une couche cachée. Dans le modèle, ces trois matrices ne sont pas données mais calculées à partir des embeddings par trois couches linéaires sans biais, une par rôle. Lors de l'entraînement, ces couches vont apprendre les poids qui permettent de faire le bon mélange. La commande `uv run learn-gpt text v3` permet d'entraîner ce modèle et de générer des noms d'animaux. `uv run learn-gpt text v3 --help` décrit les réglages possibles. La courbe d'apprentissage sera visible dans [output/text/v3_learn.png](./output/text/v3_learn.png).
 
 On constate que ce modèle v3 est moins performant que le modèle v2. Cependant, son nombre de paramètres ne grandit pas fortement avec la taille du contexte. On verra dans l'itération suivante comment récupérer cette performance.
 

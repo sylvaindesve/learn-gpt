@@ -7,11 +7,9 @@ from torch import nn
 
 from learn_gpt.commons.plotting import plt, save_figure, set_title
 from learn_gpt.commons.print_helpers import print_indented, print_new_line, print_title
-from learn_gpt.text.models import (
-    AttentionCharacterModel,
-    CharacterModel,
-    ContextCharacterModel,
-)
+from learn_gpt.text.models.v1 import CharacterModel
+from learn_gpt.text.models.v2 import ContextCharacterModel
+from learn_gpt.text.models.v3 import AttentionCharacterModel
 from learn_gpt.text.tokenizer import BOS_ID, EOS_ID, CharTokenizer
 from learn_gpt.text.train import train
 
