@@ -233,7 +233,7 @@ Une fois le modèle entraîné, il peut être utilisé pour générer des mots. 
 
 Le prochain token est tiré aléatoirement en tenant compte de la distribution. On recommence alors avec ce token jusqu'à ce que le token `<eos>` soit tiré.
 
-Le modèle, le code d'entraînement et le code de génération sont dans [src/learn_gpt/text/models.py](./src/learn_gpt/text/models.py), classe `CharacterModel`. La commande pour lancer l'entraînement, visualiser quelques prédictions et générer des mots est `uv run learn-gpt text v1`. La courbe d'apprentissage sera visible dans [output/text/v1_learn.png](./output/text/v1_learn.png). `uv run learn-gpt text v1 --help` pour voir les paramètres sur lesquels il est possible d'influer.
+Le modèle et le code de génération sont dans [src/learn_gpt/text/models.py](./src/learn_gpt/text/models.py), classe `CharacterModel`. La commande pour lancer l'entraînement (décrit dans [src/learn_gpt/text/train.py](./src/learn_gpt/text/train.py)), visualiser quelques prédictions et générer des mots est `uv run learn-gpt text v1`. La courbe d'apprentissage sera visible dans [output/text/v1_learn.png](./output/text/v1_learn.png). `uv run learn-gpt text v1 --help` pour voir les paramètres sur lesquels il est possible d'influer.
 
 ### v2 : ajouter du contexte
 

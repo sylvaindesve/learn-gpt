@@ -11,9 +11,9 @@ from learn_gpt.text.models import (
     AttentionCharacterModel,
     CharacterModel,
     ContextCharacterModel,
-    train,
 )
 from learn_gpt.text.tokenizer import BOS_ID, EOS_ID, CharTokenizer
+from learn_gpt.text.train import train
 
 OUTPUT_DIR = Path.cwd() / "output" / "text"
 
