@@ -23,6 +23,7 @@ from learn_gpt.text.cmd import (
     cmd_v4 as text_cmd_v4,
     cmd_v5 as text_cmd_v5,
     cmd_v6 as text_cmd_v6,
+    cmd_v6_gen as text_cmd_v6_gen,
 )
 
 Handler = Callable[[argparse.Namespace], int]
@@ -196,8 +197,18 @@ def build_parser() -> argparse.ArgumentParser:
     _add_steps_argument(text_v6, default=3000)
     _add_eval_every_argument(text_v6, default=200)
     _add_max_tokens_argument(text_v6, default=100)
+    _add_model_argument(text_v6, default="v6_model.pt")
     _add_learning_curve_filename_argument(text_v6, default="v6_learn.png")
     text_v6.set_defaults(handler=cmd_text_v6)
+
+    # Sous-sous-commande pour générer à partir d'un modèle v6 sauvegardé
+    text_v6_gen = text_sub.add_parser(
+        "v6-gen", help="générer avec un modèle v6 sauvegardé"
+    )
+    _add_model_argument(text_v6_gen, default="v6_model.pt")
+    _add_max_tokens_argument(text_v6_gen, default=100)
+    _add_temperature_argument(text_v6_gen, default=0.8)
+    text_v6_gen.set_defaults(handler=cmd_text_v6_gen)
 
     return parser
 
@@ -350,6 +361,32 @@ def _add_max_tokens_argument(
         default=default,
         metavar="N",
         help="nombre maximum de tokens générés (défaut : %(default)s)",
+    )
+
+
+# Ajoute un argument pour le fichier de sauvegarde du modèle
+def _add_model_argument(
+    parser: argparse.ArgumentParser, default: str = "v6_model.pt"
+) -> None:
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=default,
+        metavar="FILENAME",
+        help="nom du fichier du modèle dans output/text (défaut : %(default)s)",
+    )
+
+
+# Ajoute un argument pour la température de génération
+def _add_temperature_argument(
+    parser: argparse.ArgumentParser, default: float = 0.8
+) -> None:
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=default,
+        metavar="T",
+        help="température de génération (défaut : %(default)s)",
     )
 
 
@@ -540,7 +577,17 @@ def cmd_text_v6(args: argparse.Namespace) -> int:
         steps=args.steps,
         eval_every=args.eval_every,
         max_tokens=args.max_tokens,
+        model_filename=args.model,
         filename=args.filename,
+    )
+    return 0
+
+
+def cmd_text_v6_gen(args: argparse.Namespace) -> int:
+    text_cmd_v6_gen(
+        model_filename=args.model,
+        max_tokens=args.max_tokens,
+        temperature=args.temperature,
     )
     return 0
 

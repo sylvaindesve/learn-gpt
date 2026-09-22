@@ -6,6 +6,7 @@ from torch import nn
 
 from learn_gpt.commons.plotting import plot_learning_curves
 from learn_gpt.commons.print_helpers import print_indented, print_new_line, print_title
+from learn_gpt.text.checkpoint import load_model, save_model
 from learn_gpt.text.data import (
     MOTS,
     download_cefr,
@@ -511,6 +512,7 @@ def cmd_v6(
     steps: int,
     eval_every: int,
     max_tokens: int,
+    model_filename: str,
     filename: str,
 ) -> None:
     print_title("Entraîner et tester le modèle v6")
@@ -606,6 +608,55 @@ def cmd_v6(
     )
 
     print_generations(microGPT, tokenizer, max_tokens=max_tokens)
+
+    print_indented("Sauvegarde du modèle", 1)
+    filepath = OUTPUT_DIR / model_filename
+    save_model(
+        filepath,
+        microGPT,
+        tokenizer,
+        embedding_dim=embedding_dim,
+        block_size=block_size,
+        n_head=n_head,
+        n_layer=n_layers,
+    )
+    size_ko = filepath.stat().st_size / 1024
+    print_indented(f"Modèle sauvegardé sous {filepath} ({size_ko:.0f} Ko)", 2)
+    print_indented(
+        "Pour générer à nouveau : "
+        f"uv run learn-gpt text v6-gen --model {model_filename}",
+        2,
+    )
+
+
+def cmd_v6_gen(
+    *,
+    model_filename: str,
+    max_tokens: int,
+    temperature: float,
+) -> None:
+    print_title("Générer avec un modèle v6 sauvegardé")
+    print_new_line()
+
+    print_indented("Rechargement du modèle", 1)
+    filepath = OUTPUT_DIR / model_filename
+
+    if not filepath.is_file():
+        raise SystemExit(
+            f"Aucun modèle sauvegardé sous {filepath} : "
+            "lancez d'abord `uv run learn-gpt text v6`"
+        )
+
+    model, tokenizer = load_model(filepath)
+    print_indented(f"Modèle rechargé depuis {filepath}", 2)
+    print_parameters(model)
+
+    print_generations(
+        model,
+        tokenizer,
+        temperatures=(temperature,),
+        max_tokens=max_tokens,
+    )
 
 
 def cmd_v2_v3(*, lr: float, epochs: int) -> None:
