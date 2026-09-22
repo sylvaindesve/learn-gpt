@@ -21,6 +21,7 @@ from learn_gpt.text.cmd import (
     cmd_v2_v3 as text_cmd_v2_v3,
     cmd_v3 as text_cmd_v3,
     cmd_v4 as text_cmd_v4,
+    cmd_v5 as text_cmd_v5,
 )
 
 Handler = Callable[[argparse.Namespace], int]
@@ -168,6 +169,21 @@ def build_parser() -> argparse.ArgumentParser:
     _add_learning_curve_filename_argument(text_v4, default="v4_learn.png")
     text_v4.set_defaults(handler=cmd_text_v4)
 
+    # Sous-sous-commande pour entraîner un modèle v5 avec perte calculée
+    # sur toutes les positions
+    text_v5 = text_sub.add_parser(
+        "v5", help="entraîner et tester un modèle v5 (perte sur toutes les positions)"
+    )
+    _add_embedding_dim_argument(text_v5, default=8)
+    _add_block_size_argument(text_v5, default=3)
+    _add_n_head_argument(text_v5, default=4)
+    _add_mask_argument(text_v5)
+    _add_lr_argument(text_v5, default=0.01)
+    _add_batch_size_argument(text_v5, default=16)
+    _add_steps_argument(text_v5, default=3000)
+    _add_learning_curve_filename_argument(text_v5, default="v5_learn.png")
+    text_v5.set_defaults(handler=cmd_text_v5)
+
     return parser
 
 
@@ -239,6 +255,17 @@ def _add_n_head_argument(parser: argparse.ArgumentParser, default: int = 4) -> N
     )
 
 
+# Ajoute un argument pour désactiver le masque causal
+def _add_mask_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--no-mask",
+        action="store_false",
+        dest="mask",
+        default=True,
+        help="désactive le masque causal : le modèle peut alors voir la réponse",
+    )
+
+
 # Ajoute un argument sur le nombre de couches cachées
 def _add_layers_argument(parser: argparse.ArgumentParser, default: int = 1) -> None:
     parser.add_argument(
@@ -269,6 +296,17 @@ def _add_epochs_argument(parser: argparse.ArgumentParser, default: int = 3000) -
         default=default,
         metavar="N",
         help="nombre d'époques (défaut : %(default)s)",
+    )
+
+
+# Ajoute un argument pour le contrôle du nombre d'étapes
+def _add_steps_argument(parser: argparse.ArgumentParser, default: int = 3000) -> None:
+    parser.add_argument(
+        "--steps",
+        type=int,
+        default=default,
+        metavar="N",
+        help="nombre d'étapes (défaut : %(default)s)",
     )
 
 
@@ -429,6 +467,20 @@ def cmd_text_v4(args: argparse.Namespace) -> int:
         n_head=args.head,
         lr=args.lr,
         epochs=args.epochs,
+        filename=args.filename,
+    )
+    return 0
+
+
+def cmd_text_v5(args: argparse.Namespace) -> int:
+    text_cmd_v5(
+        embedding_dim=args.embedding,
+        block_size=args.block,
+        n_head=args.head,
+        with_mask=args.mask,
+        lr=args.lr,
+        batch_size=args.batch,
+        steps=args.steps,
         filename=args.filename,
     )
     return 0

@@ -353,3 +353,27 @@ On ajoute tout de même une couche en sortie de l'attention pour mélanger les m
 Ce mécanisme est implémenté dans [src/learn_gpt/text/models/v4.py](./src/learn_gpt/text/models/v4.py) que l'on peut entraîner avec la commande `uv run learn-gpt text v4` afin de voir la génération en sortie et la courbe d'apprentissage dans [output/text/v4_learn.png](./output/text/v4_learn.png). Les réglages sont visibles avec `uv run learn-gpt text v4 --help`.
 
 Il est possible de voir que cette modification permet de retrouver une perte au plancher du corpus, avec un nombre de paramètres qui reste moindre par rapport au modèle v2.
+
+### v5 : perte sur toutes les positions et masque causal
+
+Jusqu'ici, le modèle n'était entraîné que sur **une seule prédiction par fenêtre** : celle de la dernière position. Une fenêtre de 3 tokens ne fournissait donc qu'un seul signal d'apprentissage, alors qu'elle en contient en réalité 3 : prédire le 2ᵉ token à partir du 1ᵉʳ, le 3ᵉ à partir des deux premiers, et le 4ᵉ à partir des trois.
+
+Deux choses changent donc dans cette itération :
+
+- le corpus devient un **flux continu** : les mots encadrés par `<bos>` et `<eos>` sont mis bout à bout, et l'on tire au hasard des fenêtres de `block_size` tokens dans ce flux, au lieu de découper chaque mot en fenêtres indépendantes. C'est ainsi qu'un vrai GPT est entraîné ;
+- la perte est calculée sur **toutes les positions** de la fenêtre.
+
+Mais il y a un piège. Sur une fenêtre de 3 tokens, les positions 0 et 1 ont leur cible **à l'intérieur même de la fenêtre** : la cible de la position 0 est le token de la position 1, celle de la position 1 est le token de la position 2. Si rien ne l'en empêche, le modèle n'a qu'à recopier ce qu'il a sous les yeux et n'apprend plus à prédire — ce qu'il ne pourra pas faire à la génération, puisque les tokens suivants n'existent pas encore.
+
+Le **masque causal** interdit à chaque position de regarder les positions futures : on met à `-inf` le triangle supérieur de la matrice des scores avant le *softmax*, ce qui annule les poids correspondants.
+
+La différence est importante. Pour cet objectif, le plancher du corpus (la perte minimale atteignable, vue dans la commande `v2v3`) est de **0,72** :
+
+|             | perte finale | exemples de générations (T=0,8)                            |
+|-------------|--------------|------------------------------------------------------------|
+| avec masque | **0,93**     | `ouris`, `abeille`, `lapin`, `oiseau`, `grenard`, `renard` |
+| sans masque | **0,12**     | `ttcis`, `tttelle`, `ttciseau`, `ttcsas`                   |
+
+Sans masque, la perte passe **sous le plancher**, ce qui n'est possible qu'en utilisant une information supplémentaire — ici, le token à prédire lui-même. Les mots obtenus le trahissent immédiatement. Avec le masque, la perte reste au-dessus du plancher et les générations sont des noms crédibles.
+
+Le modèle est dans [src/learn_gpt/text/models/v5.py](./src/learn_gpt/text/models/v5.py) et le nouvel entraînement dans [src/learn_gpt/text/train.py](./src/learn_gpt/text/train.py). La commande `uv run learn-gpt text v5` entraîne et génère ; `--no-mask` désactive le masque pour reproduire la comparaison ci-dessus. La courbe d'apprentissage est visible dans [output/text/v5_learn.png](./output/text/v5_learn.png).

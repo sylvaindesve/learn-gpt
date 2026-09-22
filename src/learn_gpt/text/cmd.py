@@ -11,8 +11,9 @@ from learn_gpt.text.models.v1 import CharacterModel
 from learn_gpt.text.models.v2 import ContextCharacterModel
 from learn_gpt.text.models.v3 import AttentionCharacterModel
 from learn_gpt.text.models.v4 import MultiHeadAttentionCharacterModel
+from learn_gpt.text.models.v5 import StreamMultiHeadAttentionCharacterModel
 from learn_gpt.text.tokenizer import BOS_ID, EOS_ID, CharTokenizer
-from learn_gpt.text.train import train
+from learn_gpt.text.train import train, train_stream
 
 OUTPUT_DIR = Path.cwd() / "output" / "text"
 
@@ -604,4 +605,114 @@ def cmd_v4(
     print_indented("Avec température T=0.4:", 2)
     for _ in range(10):
         tokens = multihead_char_model.generate(BOS_ID, EOS_ID, temperature=0.4)
+        print_indented(tokenizer.decode(tokens), 3)
+
+
+def cmd_v5(
+    *,
+    embedding_dim: int,
+    block_size: int,
+    n_head: int,
+    with_mask: bool,
+    lr: float,
+    batch_size: int,
+    steps: int,
+    filename: str,
+) -> None:
+    print_title("Entraîner et tester le modèle v5")
+    print_indented("Calcul des pertes sur toutes les positions", 1)
+    print_new_line()
+
+    print_indented("Dimensionnement du modèle", 1)
+    print_indented(f"embedding_dim = {embedding_dim}", 2)
+    print_indented(f"n_head = {n_head}", 2)
+    print_indented(f"block_size = {block_size}", 2)
+    print_indented(f"masque causal = {'oui' if with_mask else 'non'}", 2)
+    print_new_line()
+
+    if not with_mask:
+        print_indented(
+            "Attention : sans masque causal, chaque position voit la réponse "
+            "et la perte n'a plus de sens.",
+            1,
+        )
+        print_new_line()
+
+    print_indented("Création du tokenizer", 1)
+    tokenizer = CharTokenizer.train("".join(MOTS))
+    print_indented(f"vocab_size = {len(tokenizer.vocab)}", 2)
+    print_new_line()
+
+    print_indented("Instanciation du modèle", 1)
+    torch.manual_seed(0)
+    stream_multihead_char_model = StreamMultiHeadAttentionCharacterModel(
+        len(tokenizer.vocab), embedding_dim, block_size, n_head, with_mask
+    )
+    n_parameters = sum(p.numel() for p in stream_multihead_char_model.parameters())
+    print_indented(f"Nombre de paramètres = {n_parameters}", 2)
+    print_new_line()
+
+    print_indented("Préparation des données d'entraînement (flux)", 1)
+
+    stream = [token for mot in MOTS for token in tokenizer.encode(mot)]
+    print_indented(f"Taille du flux = {len(stream)} tokens", 2)
+
+    # Le plancher se calcule sur les paires (préfixe, token suivant) vues à
+    # chaque position de chaque fenêtre, puisque la perte porte maintenant
+    # sur toutes les positions
+    contexts: list[list[int]] = []
+    targets: list[int] = []
+    for i in range(len(stream) - block_size):
+        for j in range(block_size):
+            contexts.append(stream[i : i + j + 1])
+            targets.append(stream[i + j + 1])
+
+    floor = loss_floor(contexts, targets)
+    print_indented(f"Plancher = {floor:.2f}", 2)
+
+    print_new_line()
+
+    print_indented("Entraînement ...", 1)
+    loss_history = train_stream(
+        stream_multihead_char_model,
+        stream,
+        len(tokenizer.vocab),
+        block_size,
+        lr=lr,
+        batch_size=batch_size,
+        steps=steps,
+        logger=lambda s: print_indented(s, 2),
+    )
+    print_indented("Entraînement terminé", 1)
+    print_indented(f"Perte finale = {loss_history[-1]:.2f} (plancher = {floor:.2f})", 2)
+    print_new_line()
+
+    print_indented("Création de la visualisation de la courbe d'apprentissage", 1)
+    filepath = OUTPUT_DIR / filename
+    plt.figure()
+    plt.plot(loss_history)
+    plt.xlabel("Étape")
+    plt.ylabel("Entropie croisée")
+    set_title(
+        "Courbe d'apprentissage du modèle v5",
+        f"embeddings = {embedding_dim}, contexte = {block_size}, "
+        f"têtes = {n_head}, masque = {'oui' if with_mask else 'non'}, "
+        f"{steps} étapes, lr={lr}",
+    )
+    plt.grid(True)
+    save_figure(filepath)
+    print_indented(f"Courbe d'apprentissage créée sous {filepath}", 2)
+    print_new_line()
+
+    print_indented("Génération avec le modèle entraîné:", 1)
+    torch.manual_seed(42)  # Reproductibilité
+
+    print_indented("Avec température T=0.8:", 2)
+    for _ in range(10):
+        tokens = stream_multihead_char_model.generate(BOS_ID, EOS_ID, temperature=0.8)
+        print_indented(tokenizer.decode(tokens), 3)
+
+    print_indented("Avec température T=0.4:", 2)
+    for _ in range(10):
+        tokens = stream_multihead_char_model.generate(BOS_ID, EOS_ID, temperature=0.4)
         print_indented(tokenizer.decode(tokens), 3)
