@@ -54,29 +54,39 @@ def set_title(title: str, context: str = "") -> None:
     )
 
 
-# Trace les courbes d'apprentissage
-def trace_learning_curve(
-    # Historique de pertes sur les données d'entraînement
-    train_loss_history: list[float],
-    # Historique de pertes sur les données de validation
-    val_loss_history: list[float],
+# Trace et enregistre les courbes d'apprentissage (entraînement et, si elle est
+# fournie, validation).
+# La validation n'est pas mesurée à chaque étape : `val_steps` donne donc
+# l'abscisse de chaque point de validation.
+def plot_learning_curves(
+    train_losses: list[float],
+    val_losses: list[float] | None = None,
+    *,
+    title: str,
+    context: str,
     filepath: Path,
-    rmse_unit: str = "",  # Unité de la RMSE
-):
+    xlabel: str = "Époque",
+    ylabel: str = "Perte",
+    val_steps: list[int] | None = None,
+) -> None:
     plt.figure()
     plt.plot(
-        train_loss_history,
+        range(1, len(train_losses) + 1),
+        train_losses,
         label="Perte sur les données d'entraînement",
     )
-    plt.plot(val_loss_history, label="Perte sur les données de validation")
-    plt.xlabel("Époque")
-    plt.ylabel(f"RMSE {rmse_unit}")
-    plt.legend()
-    set_title(
-        "Courbe d'apprentissage",
-        f"RMSE finale : {val_loss_history[-1]:.2f} {rmse_unit} "
-        f"(entraînement : {train_loss_history[-1]:.2f} {rmse_unit})",
-    )
+
+    if val_losses:
+        plt.plot(
+            val_steps if val_steps else range(1, len(val_losses) + 1),
+            val_losses,
+            label="Perte sur les données de validation",
+        )
+        plt.legend()
+
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    set_title(title, context)
     plt.grid(True)
 
-    save_figure(filepath, dpi=150)
+    save_figure(filepath)

@@ -3,7 +3,7 @@ from pathlib import Path
 import torch
 
 from learn_gpt.commons.data import ensure_file, extract_data, read_csv, split
-from learn_gpt.commons.plotting import plt, save_figure, set_title, trace_learning_curve
+from learn_gpt.commons.plotting import plot_learning_curves, plt, save_figure, set_title
 from learn_gpt.commons.print_helpers import print_indented, print_new_line, print_title
 from learn_gpt.linear.train import normalize
 from learn_gpt.neuron.mlp import MultiLayerPerceptron, train as train_mlp
@@ -198,8 +198,16 @@ def cmd_co2(
     print_new_line()
 
     print_indented("Création de la visualisation de la courbe d'apprentissage", 1)
-    trace_learning_curve(
-        train_loss_history, val_loss_history, OUTPUT_DIR / filename, rmse_unit="g/km"
+    plot_learning_curves(
+        train_loss_history,
+        val_loss_history,
+        title="Courbe d'apprentissage",
+        context=(
+            f"RMSE finale : {val_loss_history[-1]:.2f} g/km "
+            f"(entraînement : {train_loss_history[-1]:.2f} g/km)"
+        ),
+        filepath=OUTPUT_DIR / filename,
+        ylabel="RMSE g/km",
     )
     print_indented(f"Courbe d'apprentissage créée sous {OUTPUT_DIR / filename}", 2)
 

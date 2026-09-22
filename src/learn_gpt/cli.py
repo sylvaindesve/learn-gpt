@@ -187,13 +187,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Sous-sous-commande pour entraîner un modèle v6 GPT complet
     text_v6 = text_sub.add_parser("v6", help="entraîner et tester un modèle v6 (GPT)")
-    _add_embedding_dim_argument(text_v6, default=8)
-    _add_block_size_argument(text_v6, default=3)
+    _add_embedding_dim_argument(text_v6, default=64)
+    _add_block_size_argument(text_v6, default=32)
     _add_n_head_argument(text_v6, default=4)
     _add_layers_argument(text_v6, default=2)
-    _add_lr_argument(text_v6, default=0.01)
-    _add_batch_size_argument(text_v6, default=16)
+    _add_lr_argument(text_v6, default=0.003)
+    _add_batch_size_argument(text_v6, default=32)
     _add_steps_argument(text_v6, default=3000)
+    _add_eval_every_argument(text_v6, default=200)
+    _add_max_tokens_argument(text_v6, default=100)
     _add_learning_curve_filename_argument(text_v6, default="v6_learn.png")
     text_v6.set_defaults(handler=cmd_text_v6)
 
@@ -320,6 +322,34 @@ def _add_steps_argument(parser: argparse.ArgumentParser, default: int = 3000) ->
         default=default,
         metavar="N",
         help="nombre d'étapes (défaut : %(default)s)",
+    )
+
+
+# Ajoute un argument pour la fréquence d'évaluation sur la validation
+def _add_eval_every_argument(
+    parser: argparse.ArgumentParser, default: int = 200
+) -> None:
+    parser.add_argument(
+        "--eval-every",
+        type=int,
+        default=default,
+        metavar="N",
+        help=(
+            "mesure la perte de validation toutes les N étapes (défaut : %(default)s)"
+        ),
+    )
+
+
+# Ajoute un argument pour le nombre maximum de tokens générés
+def _add_max_tokens_argument(
+    parser: argparse.ArgumentParser, default: int = 20
+) -> None:
+    parser.add_argument(
+        "--max-tokens",
+        type=int,
+        default=default,
+        metavar="N",
+        help="nombre maximum de tokens générés (défaut : %(default)s)",
     )
 
 
@@ -508,6 +538,8 @@ def cmd_text_v6(args: argparse.Namespace) -> int:
         lr=args.lr,
         batch_size=args.batch,
         steps=args.steps,
+        eval_every=args.eval_every,
+        max_tokens=args.max_tokens,
         filename=args.filename,
     )
     return 0

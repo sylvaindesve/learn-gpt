@@ -4,9 +4,17 @@ from typing import Protocol
 import torch
 from torch import nn
 
-from learn_gpt.commons.plotting import plt, save_figure, set_title
+from learn_gpt.commons.plotting import plot_learning_curves
 from learn_gpt.commons.print_helpers import print_indented, print_new_line, print_title
-from learn_gpt.text.data import MOTS, loss_floor, stream_pairs, to_stream, to_train_data
+from learn_gpt.text.data import (
+    MOTS,
+    download_cefr,
+    load_cefr,
+    loss_floor,
+    stream_pairs,
+    to_stream,
+    to_train_data,
+)
 from learn_gpt.text.models.v1 import CharacterModel
 from learn_gpt.text.models.v2 import ContextCharacterModel
 from learn_gpt.text.models.v3 import AttentionCharacterModel
@@ -14,7 +22,7 @@ from learn_gpt.text.models.v4 import MultiHeadAttentionCharacterModel
 from learn_gpt.text.models.v5 import StreamMultiHeadAttentionCharacterModel
 from learn_gpt.text.models.v6 import MicroGPTModel
 from learn_gpt.text.tokenizer import BOS_ID, EOS_ID, CharTokenizer
-from learn_gpt.text.train import evaluate_stream, train, train_stream
+from learn_gpt.text.train import train, train_stream, train_stream_with_validation
 
 OUTPUT_DIR = Path.cwd() / "output" / "text"
 
@@ -22,14 +30,19 @@ OUTPUT_DIR = Path.cwd() / "output" / "text"
 # Ce que toutes les versions du modèle savent faire : générer une séquence
 class GenerativeModel(Protocol):
     def generate(
-        self, bos_id: int, eos_id: int, temperature: float = 0.8
+        self,
+        bos_id: int,
+        eos_id: int,
+        temperature: float = 0.8,
+        max_tokens: int = 20,
     ) -> list[int]: ...
 
 
-# Crée le tokenizer du corpus et affiche la taille du vocabulaire
-def create_tokenizer() -> CharTokenizer:
-    print_indented("Création du tokenizer", 1)
-    tokenizer = CharTokenizer.train("".join(MOTS))
+# Crée le tokenizer d'un corpus et affiche la taille du vocabulaire
+def create_tokenizer(corpus: list[str], label: str = "") -> CharTokenizer:
+    suffix = f" ({label})" if label else ""
+    print_indented(f"Création du tokenizer{suffix}", 1)
+    tokenizer = CharTokenizer.train("".join(corpus))
     print_indented(f"vocab_size = {len(tokenizer.vocab)}", 2)
     print_new_line()
     return tokenizer
@@ -52,7 +65,9 @@ def print_examples(
         print_indented(f"{context} -> {tokenizer.inv_vocab[ys[i]]}", 3)
 
 
-# Trace la courbe d'apprentissage et l'enregistre
+# Trace la courbe d'apprentissage et l'enregistre.
+# La courbe de validation est optionnelle : `val_steps` donne alors l'étape de
+# chaque point, puisque la validation n'est pas mesurée à chaque étape.
 def plot_learning_curve(
     loss_history: list[float],
     *,
@@ -60,16 +75,21 @@ def plot_learning_curve(
     context: str,
     filename: str,
     xlabel: str = "Époque",
+    val_loss_history: list[float] | None = None,
+    val_steps: list[int] | None = None,
 ) -> None:
     print_indented("Création de la visualisation de la courbe d'apprentissage", 1)
     filepath = OUTPUT_DIR / filename
-    plt.figure()
-    plt.plot(loss_history)
-    plt.xlabel(xlabel)
-    plt.ylabel("Entropie croisée")
-    set_title(title, context)
-    plt.grid(True)
-    save_figure(filepath)
+    plot_learning_curves(
+        loss_history,
+        val_loss_history,
+        title=title,
+        context=context,
+        filepath=filepath,
+        xlabel=xlabel,
+        ylabel="Entropie croisée",
+        val_steps=val_steps,
+    )
     print_indented(f"Courbe d'apprentissage créée sous {filepath}", 2)
     print_new_line()
 
@@ -81,6 +101,7 @@ def print_generations(
     *,
     temperatures: tuple[float, ...] = (0.8, 0.4),
     n_samples: int = 10,
+    max_tokens: int = 20,
 ) -> None:
     print_indented("Génération avec le modèle entraîné:", 1)
     # Pour que les générations soient reproductibles
@@ -89,7 +110,9 @@ def print_generations(
     for temperature in temperatures:
         print_indented(f"Avec température T={temperature}:", 2)
         for _ in range(n_samples):
-            tokens = model.generate(BOS_ID, EOS_ID, temperature=temperature)
+            tokens = model.generate(
+                BOS_ID, EOS_ID, temperature=temperature, max_tokens=max_tokens
+            )
             print_indented(tokenizer.decode(tokens), 3)
 
 
@@ -172,7 +195,7 @@ def cmd_v1(*, embedding_dim: int, lr: float, epochs: int, filename: str) -> None
     print_indented("Un modèle qui prédit le prochain caractère", 1)
     print_new_line()
 
-    tokenizer = create_tokenizer()
+    tokenizer = create_tokenizer(MOTS)
 
     print_indented("Instanciation du modèle", 1)
     torch.manual_seed(0)
@@ -247,7 +270,7 @@ def cmd_v2(
     print_indented("Un modèle avec une fenêtre de contexte", 1)
     print_new_line()
 
-    tokenizer = create_tokenizer()
+    tokenizer = create_tokenizer(MOTS)
 
     print_indented("Instanciation du modèle", 1)
     torch.manual_seed(0)
@@ -301,7 +324,7 @@ def cmd_v3(
     print_indented("Un modèle avec calcul d'attention", 1)
     print_new_line()
 
-    tokenizer = create_tokenizer()
+    tokenizer = create_tokenizer(MOTS)
 
     print_indented("Instanciation du modèle", 1)
     torch.manual_seed(0)
@@ -359,7 +382,7 @@ def cmd_v4(
     print_indented(f"block_size = {block_size}", 2)
     print_new_line()
 
-    tokenizer = create_tokenizer()
+    tokenizer = create_tokenizer(MOTS)
 
     print_indented("Instanciation du modèle", 1)
     torch.manual_seed(0)
@@ -427,7 +450,7 @@ def cmd_v5(
         )
         print_new_line()
 
-    tokenizer = create_tokenizer()
+    tokenizer = create_tokenizer(MOTS)
 
     print_indented("Instanciation du modèle", 1)
     torch.manual_seed(0)
@@ -486,11 +509,42 @@ def cmd_v6(
     lr: float,
     batch_size: int,
     steps: int,
+    eval_every: int,
+    max_tokens: int,
     filename: str,
 ) -> None:
     print_title("Entraîner et tester le modèle v6")
-    print_indented("Architecture GPT", 1)
+    print_indented("Un vrai corpus de phrases françaises", 1)
     print_new_line()
+
+    print_indented("Téléchargement du corpus", 1)
+    downloaded = download_cefr()
+    if downloaded:
+        print_indented(f"Corpus absent : téléchargement de {', '.join(downloaded)}", 2)
+    else:
+        print_indented("Corpus déjà présent sur le disque", 2)
+    print_new_line()
+
+    print_indented("Chargement du corpus", 1)
+    phrases_train, phrases_val, phrases_test = load_cefr()
+    print_indented(
+        f"train : {len(phrases_train)} phrases, "
+        f"{sum(len(phrase) for phrase in phrases_train)} caractères",
+        2,
+    )
+    print_indented(
+        f"val   : {len(phrases_val)} phrases, "
+        f"{sum(len(phrase) for phrase in phrases_val)} caractères",
+        2,
+    )
+    print_indented(
+        f"test  : {len(phrases_test)} phrases (gardées de côté pour la fin)", 2
+    )
+    print_new_line()
+
+    # Le tokenizer est entraîné sur le jeu d'entraînement uniquement : la
+    # validation doit rester inconnue du modèle
+    tokenizer = create_tokenizer(phrases_train, label="sur train uniquement")
 
     print_indented("Dimensionnement du modèle", 1)
     print_indented(f"embedding_dim = {embedding_dim}", 2)
@@ -499,8 +553,6 @@ def cmd_v6(
     print_indented(f"n_layers = {n_layers}", 2)
     print_new_line()
 
-    tokenizer = create_tokenizer()
-
     print_indented("Instanciation du modèle", 1)
     torch.manual_seed(0)
     microGPT = MicroGPTModel(
@@ -508,51 +560,52 @@ def cmd_v6(
     )
     print_parameters(microGPT)
 
-    print_indented("Préparation des données d'entraînement (flux)", 1)
+    print_indented("Préparation des données d'entraînement", 1)
 
-    stream = to_stream(MOTS, tokenizer)
-    print_indented(f"Taille du flux = {len(stream)} tokens", 2)
+    train_stream_data = to_stream(phrases_train, tokenizer)
+    val_stream_data = to_stream(phrases_val, tokenizer)
+    windows_per_epoch = len(train_stream_data) - block_size
+    epochs = steps * batch_size / windows_per_epoch
 
-    contexts, targets = stream_pairs(stream, block_size)
-    floor = loss_floor(contexts, targets)
-    print_indented(f"Plancher = {floor:.2f}", 2)
-
+    print_indented(f"Flux d'entraînement = {len(train_stream_data)} tokens", 2)
+    print_indented(f"Flux de validation = {len(val_stream_data)} tokens", 2)
+    print_indented(
+        f"{steps} étapes de {batch_size} fenêtres = {epochs:.2f} époque(s), "
+        f"une époque valant {windows_per_epoch} fenêtres",
+        2,
+    )
     print_new_line()
 
     print_indented("Entraînement ...", 1)
-    loss_history = train_stream(
+    train_loss_history, val_loss_history, eval_steps = train_stream_with_validation(
         microGPT,
-        stream,
+        train_stream_data,
+        val_stream_data,
         len(tokenizer.vocab),
         block_size,
         lr=lr,
         batch_size=batch_size,
         steps=steps,
+        eval_every=eval_every,
         logger=lambda s: print_indented(s, 2),
     )
     print_indented("Entraînement terminé", 1)
-    print_indented(f"Perte du dernier lot = {loss_history[-1]:.2f}", 2)
-
-    # Le dernier lot ne contient que quelques fenêtres : sa perte est très
-    # bruitée. On évalue donc la perte sur tout le flux pour savoir où en est
-    # vraiment le modèle
-    stream_loss = evaluate_stream(microGPT, stream, len(tokenizer.vocab), block_size)
-    print_indented(
-        f"Perte sur tout le flux = {stream_loss:.2f} (plancher = {floor:.2f})", 2
-    )
+    print_indented(f"Perte d'entraînement = {train_loss_history[-1]:.2f}", 2)
+    print_indented(f"Perte de validation = {val_loss_history[-1]:.2f}", 2)
     print_new_line()
 
     plot_learning_curve(
-        loss_history,
+        train_loss_history,
         title="Courbe d'apprentissage du modèle v6",
         context=f"embeddings = {embedding_dim}, contexte = {block_size}, "
-        f"têtes = {n_head}, couches = {n_layers}, "
-        f"{steps} étapes, lr={lr}",
+        f"têtes = {n_head}, couches = {n_layers}, {steps} étapes, lr={lr}",
         filename=filename,
         xlabel="Étape",
+        val_loss_history=val_loss_history,
+        val_steps=eval_steps,
     )
 
-    print_generations(microGPT, tokenizer)
+    print_generations(microGPT, tokenizer, max_tokens=max_tokens)
 
 
 def cmd_v2_v3(*, lr: float, epochs: int) -> None:
@@ -560,7 +613,7 @@ def cmd_v2_v3(*, lr: float, epochs: int) -> None:
     print_indented("Ce que l'attention change", 1)
     print_new_line()
 
-    tokenizer = create_tokenizer()
+    tokenizer = create_tokenizer(MOTS)
 
     # Résultats de l'entraînement des modèles
     results: list[tuple[int, int, str, int, float, float]] = []

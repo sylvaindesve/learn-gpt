@@ -1,6 +1,8 @@
 from collections import Counter
 from math import log
+from pathlib import Path
 
+from learn_gpt.commons.data import ensure_file, read_csv
 from learn_gpt.text.tokenizer import CharTokenizer
 
 # La liste de noms d'animaux pour cette section
@@ -22,6 +24,34 @@ MOTS = [
     "sanglier",
     "blaireau",
 ]
+
+
+# Le corpus french_CEFR : des phrases françaises, séparées en trois jeux
+#   https://huggingface.co/datasets/vekkt/french_CEFR
+CEFR_BASE_URL = "https://huggingface.co/datasets/vekkt/french_CEFR/resolve/main"
+CEFR_DIR = Path.cwd() / "data" / "french_CEFR"
+CEFR_SPLITS = ("train", "val", "test")
+
+
+# Télécharge les fichiers du corpus s'ils sont absents du disque.
+# Renvoie la liste des jeux qui ont effectivement été téléchargés
+def download_cefr() -> list[str]:
+    downloaded: list[str] = []
+
+    for split in CEFR_SPLITS:
+        path = CEFR_DIR / f"{split}.csv"
+        if ensure_file(path, f"{CEFR_BASE_URL}/{split}.csv"):
+            downloaded.append(split)
+
+    return downloaded
+
+
+# Charge les phrases des trois jeux du corpus : (train, val, test)
+def load_cefr() -> tuple[list[str], list[str], list[str]]:
+    train = read_csv(CEFR_DIR / "train.csv")["sentence"]
+    val = read_csv(CEFR_DIR / "val.csv")["sentence"]
+    test = read_csv(CEFR_DIR / "test.csv")["sentence"]
+    return train, val, test
 
 
 # Encode les mots puis les découpe en fenêtres glissantes de taille
