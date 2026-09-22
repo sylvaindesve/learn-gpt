@@ -341,3 +341,15 @@ Le modèle dans [src/learn_gpt/text/models/v3.py](./src/learn_gpt/text/models/v3
 On constate que ce modèle v3 est moins performant que le modèle v2. Cependant, son nombre de paramètres ne grandit pas fortement avec la taille du contexte. On verra dans l'itération suivante comment récupérer cette performance.
 
 La commande `uv run learn-gpt text v2v3` permet de comparer les deux modèles dans différentes configurations. Cette commande introduit également la notion de **plancher** : la perte minimale que l'on peut atteindre sur un jeu de données.
+
+### v4 : plusieurs têtes d'attention
+
+La limite du modèle v3 est qu'une tête d'attention ne produit qu'**un seul** motif de mélange : quelles que soient les positions qu'elle regarde, elle les combine toujours de la même façon. Augmenter la dimension des embeddings ou la taille du contexte améliore les choses, mais au prix de beaucoup de paramètres : avec `embedding_dim` = 32, la v3 descend à 0,65 de perte en utilisant 4 403 paramètres, alors que le plancher du corpus est à 0,43.
+
+La solution est d'utiliser plusieurs têtes d'attention en parallèle : on coupe la dimension des embeddings en `n_head` partitions de dimension `head_dim`, et chaque tête apprend son propre motif. Par ailleurs, augmenter le nombre de têtes ne coûte aucun paramètre : les matrices générant les **queries**, **keys** et **values** sont les mêmes, partitionnées différemment.
+
+On ajoute tout de même une couche en sortie de l'attention pour mélanger les motifs appris par chacune des têtes. C'est ce qui fait que le nombre de paramètres est sensiblement supérieur à la v3.
+
+Ce mécanisme est implémenté dans [src/learn_gpt/text/models/v4.py](./src/learn_gpt/text/models/v4.py) que l'on peut entraîner avec la commande `uv run learn-gpt text v4` afin de voir la génération en sortie et la courbe d'apprentissage dans [output/text/v4_learn.png](./output/text/v4_learn.png). Les réglages sont visibles avec `uv run learn-gpt text v4 --help`.
+
+Il est possible de voir que cette modification permet de retrouver une perte au plancher du corpus, avec un nombre de paramètres qui reste moindre par rapport au modèle v2.

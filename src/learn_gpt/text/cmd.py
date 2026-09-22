@@ -10,6 +10,7 @@ from learn_gpt.commons.print_helpers import print_indented, print_new_line, prin
 from learn_gpt.text.models.v1 import CharacterModel
 from learn_gpt.text.models.v2 import ContextCharacterModel
 from learn_gpt.text.models.v3 import AttentionCharacterModel
+from learn_gpt.text.models.v4 import MultiHeadAttentionCharacterModel
 from learn_gpt.text.tokenizer import BOS_ID, EOS_ID, CharTokenizer
 from learn_gpt.text.train import train
 
@@ -520,3 +521,87 @@ def cmd_v2_v3(*, lr: float, epochs: int) -> None:
     print_indented(
         "distribution observée dans le corpus : on ne peut pas faire mieux.", 1
     )
+
+
+def cmd_v4(
+    *,
+    embedding_dim: int,
+    block_size: int,
+    n_head: int,
+    lr: float,
+    epochs: int,
+    filename: str,
+) -> None:
+    print_title("Entraîner et tester le modèle v4")
+    print_indented("Un modèle avec plusieurs têtes d'attention", 1)
+    print_new_line()
+
+    print_indented("Dimensionnement du modèle", 1)
+    print_indented(f"embedding_dim = {embedding_dim}", 2)
+    print_indented(f"n_head = {n_head}", 2)
+    print_indented(f"block_size = {block_size}", 2)
+    print_new_line()
+
+    print_indented("Création du tokenizer", 1)
+    tokenizer = CharTokenizer.train("".join(MOTS))
+    print_indented(f"vocab_size = {len(tokenizer.vocab)}", 2)
+    print_new_line()
+
+    print_indented("Instanciation du modèle", 1)
+    torch.manual_seed(0)
+    multihead_char_model = MultiHeadAttentionCharacterModel(
+        len(tokenizer.vocab), embedding_dim, block_size, n_head
+    )
+    n_parameters = sum(p.numel() for p in multihead_char_model.parameters())
+    print_indented(f"Nombre de paramètres = {n_parameters}", 2)
+    print_new_line()
+
+    print_indented("Préparation des données d'entraînement", 1)
+
+    xs, ys = to_train_data(MOTS, block_size, tokenizer, BOS_ID)
+    x = torch.tensor(xs)
+    y = torch.tensor(ys)
+
+    print_new_line()
+
+    print_indented("Entraînement ...", 1)
+    loss_history = train(
+        multihead_char_model,
+        x,
+        y,
+        lr=lr,
+        epochs=epochs,
+        logger=lambda s: print_indented(s, 2),
+    )
+    print_indented("Entraînement terminé", 1)
+    print_indented(f"Perte finale = {loss_history[-1]:.2f}", 2)
+    print_new_line()
+
+    print_indented("Création de la visualisation de la courbe d'apprentissage", 1)
+    filepath = OUTPUT_DIR / filename
+    plt.figure()
+    plt.plot(loss_history)
+    plt.xlabel("Époque")
+    plt.ylabel("Entropie croisée")
+    set_title(
+        "Courbe d'apprentissage du modèle v4",
+        f"embeddings = {embedding_dim}, contexte = {block_size}, "
+        f"têtes = {n_head}, {epochs} époques, lr={lr}",
+    )
+    plt.grid(True)
+    save_figure(filepath)
+    print_indented(f"Courbe d'apprentissage créée sous {filepath}", 2)
+    print_new_line()
+
+    print_indented("Génération avec le modèle entraîné:", 1)
+    torch.manual_seed(42)  # Reproductibilité
+
+    print_indented("Avec température T=0.8:", 2)
+    for _ in range(10):
+        tokens = multihead_char_model.generate(BOS_ID, EOS_ID, temperature=0.8)
+        print_indented(tokenizer.decode(tokens), 3)
+
+    print_indented("Avec température T=0.4:", 2)
+    for _ in range(10):
+        tokens = multihead_char_model.generate(BOS_ID, EOS_ID, temperature=0.4)
+        print_indented(tokenizer.decode(tokens), 3)

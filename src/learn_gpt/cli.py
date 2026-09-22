@@ -20,6 +20,7 @@ from learn_gpt.text.cmd import (
     cmd_v2 as text_cmd_v2,
     cmd_v2_v3 as text_cmd_v2_v3,
     cmd_v3 as text_cmd_v3,
+    cmd_v4 as text_cmd_v4,
 )
 
 Handler = Callable[[argparse.Namespace], int]
@@ -155,6 +156,18 @@ def build_parser() -> argparse.ArgumentParser:
     _add_epochs_argument(text_v2_v3, default=600)
     text_v2_v3.set_defaults(handler=cmd_text_v2_v3)
 
+    # Sous-sous-commande pour entraîner un modèle v4 avec d'attention multi-têtes
+    text_v4 = text_sub.add_parser(
+        "v4", help="entraîner et tester un modèle v4 (multi-têtes)"
+    )
+    _add_embedding_dim_argument(text_v4, default=8)
+    _add_block_size_argument(text_v4, default=3)
+    _add_n_head_argument(text_v4, default=4)
+    _add_lr_argument(text_v4, default=0.01)
+    _add_epochs_argument(text_v4, default=300)
+    _add_learning_curve_filename_argument(text_v4, default="v4_learn.png")
+    text_v4.set_defaults(handler=cmd_text_v4)
+
     return parser
 
 
@@ -209,6 +222,20 @@ def _add_block_size_argument(parser: argparse.ArgumentParser, default: int = 3) 
         default=default,
         metavar="N",
         help="taille de la fenêtre de contexte (défaut : %(default)s)",
+    )
+
+
+# Ajoute un argument sur le nombre de têtes d'attention
+def _add_n_head_argument(parser: argparse.ArgumentParser, default: int = 4) -> None:
+    parser.add_argument(
+        "--head",
+        type=int,
+        default=default,
+        metavar="N",
+        help=(
+            "nombre de têtes d'attention, diviseur de embedding_dim "
+            "(défaut : %(default)s)"
+        ),
     )
 
 
@@ -392,6 +419,18 @@ def cmd_text_v3(args: argparse.Namespace) -> int:
 
 def cmd_text_v2_v3(args: argparse.Namespace) -> int:
     text_cmd_v2_v3(lr=args.lr, epochs=args.epochs)
+    return 0
+
+
+def cmd_text_v4(args: argparse.Namespace) -> int:
+    text_cmd_v4(
+        embedding_dim=args.embedding,
+        block_size=args.block,
+        n_head=args.head,
+        lr=args.lr,
+        epochs=args.epochs,
+        filename=args.filename,
+    )
     return 0
 
 
