@@ -440,3 +440,16 @@ Elle et contre de serait de l'entine est ce cette et des constructions de la mon
 ```
 
 Le modèle est dans [src/learn_gpt/text/models/v6.py](./src/learn_gpt/text/models/v6.py), le téléchargement et le chargement du corpus dans [src/learn_gpt/text/data.py](./src/learn_gpt/text/data.py), l'entraînement avec validation dans [src/learn_gpt/text/train.py](./src/learn_gpt/text/train.py) et la sauvegarde dans [src/learn_gpt/text/checkpoint.py](./src/learn_gpt/text/checkpoint.py). `uv run learn-gpt text v6 --help` décrit tous les réglages.
+
+## Pour s'amuser
+
+Le dossier [src/learn_gpt/gpt](./src/learn_gpt/gpt) contient une version finale de tout ce que nous avons vu au cours de ces itérations pour aboutir à l'architecture GPT. Le modèle est inchangé par rapport à la v6. La nouveauté est un tokenizer plus avancé utilisant la technique de compression Byte Pair Encoding (BPE) : ce tokenizer produit des tokens à partir de "bouts" de mots plutôt que pour chaque caractère. Il en résulte un vocabulaire plus riche.
+
+```bash
+uv run learn-gpt gpt               # entraîne et sauvegarde
+uv run learn-gpt gpt --help
+uv run learn-gpt gpt-gen           # recharge et génère
+uv run learn-gpt gpt-gen --help
+```
+
+A vous de jouer !

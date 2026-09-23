@@ -4,6 +4,10 @@ import argparse
 from collections.abc import Callable, Sequence
 
 from learn_gpt import __version__
+from learn_gpt.gpt.cmd import (
+    cmd_gpt as gpt_cmd_gpt,
+    cmd_gpt_gen as gpt_cmd_gpt_gen,
+)
 from learn_gpt.linear.cmd import (
     cmd_data as linear_cmd_data,
     cmd_train as linear_cmd_train,
@@ -210,6 +214,31 @@ def build_parser() -> argparse.ArgumentParser:
     _add_temperature_argument(text_v6_gen, default=0.8)
     text_v6_gen.set_defaults(handler=cmd_text_v6_gen)
 
+    # Commande pour entraîner un GPT avec un tokenizer BPE
+    gpt = subparsers.add_parser("gpt", help="entraîner un GPT avec un tokenizer BPE")
+    _add_vocab_size_argument(gpt, default=512)
+    _add_embedding_dim_argument(gpt, default=64)
+    _add_block_size_argument(gpt, default=64)
+    _add_n_head_argument(gpt, default=4)
+    _add_layers_argument(gpt, default=4)
+    _add_lr_argument(gpt, default=0.003)
+    _add_batch_size_argument(gpt, default=32)
+    _add_steps_argument(gpt, default=3000)
+    _add_eval_every_argument(gpt, default=200)
+    _add_max_tokens_argument(gpt, default=100)
+    _add_model_argument(gpt, default="gpt_model.pt")
+    _add_learning_curve_filename_argument(gpt, default="gpt_learn.png")
+    gpt.set_defaults(handler=cmd_gpt)
+
+    # Commande pour générer à partir d'un modèle GPT sauvegardé
+    gpt_gen = subparsers.add_parser(
+        "gpt-gen", help="générer avec un modèle GPT sauvegardé"
+    )
+    _add_model_argument(gpt_gen, default="gpt_model.pt")
+    _add_max_tokens_argument(gpt_gen, default=100)
+    _add_temperature_argument(gpt_gen, default=0.8)
+    gpt_gen.set_defaults(handler=cmd_gpt_gen)
+
     return parser
 
 
@@ -232,6 +261,19 @@ def _add_layer_size_argument(
         default=default,
         metavar="N",
         help="nombre de neurones dans la couche cachée (défaut : %(default)s)",
+    )
+
+
+# Ajoute un argument sur la taille du vocabulaire du tokenizer BPE
+def _add_vocab_size_argument(
+    parser: argparse.ArgumentParser, default: int = 512
+) -> None:
+    parser.add_argument(
+        "--vocab-size",
+        type=int,
+        default=default,
+        metavar="N",
+        help="taille du vocabulaire du tokenizer BPE (défaut : %(default)s)",
     )
 
 
@@ -373,7 +415,7 @@ def _add_model_argument(
         type=str,
         default=default,
         metavar="FILENAME",
-        help="nom du fichier du modèle dans output/text (défaut : %(default)s)",
+        help="nom du fichier du modèle (défaut : %(default)s)",
     )
 
 
@@ -585,6 +627,33 @@ def cmd_text_v6(args: argparse.Namespace) -> int:
 
 def cmd_text_v6_gen(args: argparse.Namespace) -> int:
     text_cmd_v6_gen(
+        model_filename=args.model,
+        max_tokens=args.max_tokens,
+        temperature=args.temperature,
+    )
+    return 0
+
+
+def cmd_gpt(args: argparse.Namespace) -> int:
+    gpt_cmd_gpt(
+        vocab_size=args.vocab_size,
+        embedding_dim=args.embedding,
+        block_size=args.block,
+        n_head=args.head,
+        n_layers=args.layers,
+        lr=args.lr,
+        batch_size=args.batch,
+        steps=args.steps,
+        eval_every=args.eval_every,
+        max_tokens=args.max_tokens,
+        model_filename=args.model,
+        filename=args.filename,
+    )
+    return 0
+
+
+def cmd_gpt_gen(args: argparse.Namespace) -> int:
+    gpt_cmd_gpt_gen(
         model_filename=args.model,
         max_tokens=args.max_tokens,
         temperature=args.temperature,
