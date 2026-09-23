@@ -225,6 +225,12 @@ def train_stream_with_validation(
         # Calcul des gradients
         loss.backward()
 
+        # On applique une décroissance linéaire du lr
+        #   Cela permet d'affiner sur la fin de l'entraînement
+        #   Il faut le faire pour chaque groupe de paramètres géré par l'optimiseur
+        for param_group in opt.param_groups:
+            param_group["lr"] = lr * (1 - step / steps)
+
         # Mise à jour des poids
         opt.step()
 
