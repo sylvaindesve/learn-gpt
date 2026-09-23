@@ -377,3 +377,58 @@ La différence est importante. Pour cet objectif, le plancher du corpus (la pert
 Sans masque, la perte passe **sous le plancher**, ce qui n'est possible qu'en utilisant une information supplémentaire — ici, le token à prédire lui-même. Les mots obtenus le trahissent immédiatement. Avec le masque, la perte reste au-dessus du plancher et les générations sont des noms crédibles.
 
 Le modèle est dans [src/learn_gpt/text/models/v5.py](./src/learn_gpt/text/models/v5.py) et le nouvel entraînement dans [src/learn_gpt/text/train.py](./src/learn_gpt/text/train.py). La commande `uv run learn-gpt text v5` entraîne et génère ; `--no-mask` désactive le masque pour reproduire la comparaison ci-dessus. La courbe d'apprentissage est visible dans [output/text/v5_learn.png](./output/text/v5_learn.png).
+
+### v6 : un vrai corpus et un GPT complet
+
+Le corpus de 16 noms d'animaux a fait son travail : il a permis de comprendre le tokenizer, la fenêtre de contexte, l'attention puis le masque causal, avec des entraînements de quelques secondes et un **plancher** que l'on pouvait calculer exactement. Mais il a fini par nous freiner : dès la v4, des architectures très différentes tombaient au plancher. Quand plusieurs modèles font aussi bien l'un que l'autre, ce n'est plus l'architecture que l'on mesure, c'est le corpus.
+
+Nous passons donc à de vraies phrases, avec le corpus [french_CEFR](https://huggingface.co/datasets/vekkt/french_CEFR) : des phrases françaises étiquetées par niveau de langue :
+
+| jeu   | phrases | caractères |
+|-------|--------:|-----------:|
+| train |   4 320 |    478 509 |
+| val   |     480 |     51 196 |
+| test  |   1 200 |    130 983 |
+
+**Le bloc Transformer.** Le modèle v5 empilait une couche d'attention entre les embeddings et la sortie. Un GPT fait la même chose, mais il répète **plusieurs fois** la même brique, et c'est cette répétition qui fait sa profondeur. Cette brique ajoute trois choses à ce que nous avions :
+
+- une **normalisation** de l'entrée de chaque sous-couche
+- une **connexion résiduelle** : la sortie de la sous-couche est ajoutée à son entrée
+- un **MLP**, qui transforme chaque position séparément, après que l'attention a fait communiquer les positions entre elles.
+
+L'attention fait communiquer, le MLP calcule : c'est la répartition des rôles dans un Transformer. La normalisation employée est une **RMSNorm** : on divise chaque vecteur par sa moyenne quadratique, sans soustraire la moyenne comme le ferait un LayerNorm.
+
+La connexion résiduelle n'est pas un détail. Mesuré sur ce corpus, à 800 étapes, avec deux et quatre blocs :
+
+|             | 2 blocs | 4 blocs  |
+|-------------|--------:|---------:|
+| avec résidu |    1,98 | **1,91** |
+| sans résidu |    2,42 | **3,12** |
+
+Empiler aide quand les résidus sont là (1,98 → 1,91) et **détruit l'entraînement** quand ils n'y sont pas (2,42 → 3,12). C'est ce qui rend un réseau profond entraînable : sans le chemin `x + sous-couche(x)`, l'information et le gradient se perdent en traversant les blocs.
+
+**La validation remplace le plancher.** Sur 16 mots, les contextes se répétaient et le plancher disait vraiment quelque chose. Sur 4 320 phrases avec 32 caractères de contexte, presque chaque contexte est unique : l'entropie conditionnelle empirique tomberait vers zéro et ne mesurerait plus que la capacité de mémorisation du modèle. Ce rôle revient désormais au **jeu de validation**, que le modèle ne voit jamais pendant l'entraînement. On y mesure la perte toutes les 200 étapes, toujours sur le même échantillon de 1 024 fenêtres, pour que les mesures soient comparables entre elles.
+
+La perte d'entraînement est bruitée : elle est mesurée sur un seul lot de 32 fenêtres. Celle de validation, lisse puisqu'elle porte toujours sur le même échantillon, est celle qu'il faut regarder — et elle descend encore. La courbe d'apprentissage les montre côte à côte dans [output/text/v6_learn.png](./output/text/v6_learn.png).
+
+**Sauvegarder le modèle.** Un modèle entraîné peut maintenant être sauvegardé puis rechargé, sans réentraînement :
+
+```bash
+uv run learn-gpt text v6                                         # entraîne et sauvegarde
+uv run learn-gpt text v6-gen --temperature 0.4 --max-tokens 60   # recharge et génère
+```
+
+Le résultat se voit dans la génération. À température 0,8, le modèle produit des phrases qui n'ont pas de sens mais dont la forme est française :
+
+```
+Elle, par dernières et s'orie.
+Lie que la gaison, comporsque au de paraît qui par en interrie les organises parfois bertement de la
+```
+
+À température 0,4, il se replie sur ses enchaînements les plus probables :
+
+```
+Elle et contre de serait de l'entine est ce cette et des constructions de la monterne des contressen
+```
+
+Le modèle est dans [src/learn_gpt/text/models/v6.py](./src/learn_gpt/text/models/v6.py), le téléchargement et le chargement du corpus dans [src/learn_gpt/text/data.py](./src/learn_gpt/text/data.py), l'entraînement avec validation dans [src/learn_gpt/text/train.py](./src/learn_gpt/text/train.py) et la sauvegarde dans [src/learn_gpt/text/checkpoint.py](./src/learn_gpt/text/checkpoint.py). `uv run learn-gpt text v6 --help` décrit tous les réglages.
