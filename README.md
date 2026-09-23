@@ -409,6 +409,14 @@ Empiler aide quand les résidus sont là (1,98 → 1,91) et **détruit l'entraî
 
 **La validation remplace le plancher.** Sur 16 mots, les contextes se répétaient et le plancher disait vraiment quelque chose. Sur 4 320 phrases avec 32 caractères de contexte, presque chaque contexte est unique : l'entropie conditionnelle empirique tomberait vers zéro et ne mesurerait plus que la capacité de mémorisation du modèle. Ce rôle revient désormais au **jeu de validation**, que le modèle ne voit jamais pendant l'entraînement. On y mesure la perte toutes les 200 étapes, toujours sur le même échantillon de 1 024 fenêtres, pour que les mesures soient comparables entre elles.
 
+**Un changement d'échelle.** Le flux d'entraînement fait 487 149 tokens. À `block_size = 32` et par lots de 32 fenêtres, **une époque demande 15 222 étapes** : les 3 000 étapes par défaut ne représentent donc que **20 % du corpus vu une fois**. Pour situer les pertes, un modèle qui répondrait au hasard obtiendrait `ln(113) ≈ 4,73`.
+
+```
+Etape  200  perte train = 2.19, perte val = 2.22
+Etape 1000  perte train = 1.80, perte val = 1.88
+Etape 3000  perte train = 1.56, perte val = 1.70
+```
+
 La perte d'entraînement est bruitée : elle est mesurée sur un seul lot de 32 fenêtres. Celle de validation, lisse puisqu'elle porte toujours sur le même échantillon, est celle qu'il faut regarder — et elle descend encore. La courbe d'apprentissage les montre côte à côte dans [output/text/v6_learn.png](./output/text/v6_learn.png).
 
 **Sauvegarder le modèle.** Un modèle entraîné peut maintenant être sauvegardé puis rechargé, sans réentraînement :
