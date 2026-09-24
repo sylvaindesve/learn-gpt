@@ -82,6 +82,7 @@ def train_stream_with_validation(
     vocab_size: int,  # taille du vocabulaire
     block_size: int,  # taille de la fenêtre de contexte
     lr: float,  # taux d'apprentissage
+    weight_decay: float,  # dégradation des pondérations
     batch_size: int,  # taille des lots
     steps: int,  # nombre d'étapes
     eval_every: int = 200,  # fréquence d'évaluation de la validation
@@ -93,7 +94,7 @@ def train_stream_with_validation(
     torch.manual_seed(seed)
 
     # Optimiseur
-    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     # Fonction de calcul de perte : entropie croisée
     loss_fn = nn.CrossEntropyLoss()
