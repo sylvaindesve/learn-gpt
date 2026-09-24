@@ -1,5 +1,6 @@
 from math import log
 from pathlib import Path
+from time import perf_counter
 
 import torch
 from torch import nn
@@ -60,6 +61,14 @@ def print_parameters(model: nn.Module) -> None:
 # comparables d'un tokenizer à l'autre.
 def bits_per_character(loss: float, characters_per_token: float) -> float:
     return loss / (characters_per_token * log(2))
+
+
+# Met une durée en secondes sous une forme lisible
+def format_duration(seconds: float) -> str:
+    minutes, secondes = divmod(round(seconds), 60)
+    if minutes:
+        return f"{minutes} min {secondes} s"
+    return f"{secondes} s"
 
 
 # Trace la courbe d'apprentissage (entraînement et validation) et l'enregistre
@@ -204,6 +213,7 @@ def cmd_gpt(
     print_new_line()
 
     print_indented("Entraînement ...", 1)
+    start = perf_counter()
     train_loss_history, val_loss_history, eval_steps = train_stream_with_validation(
         model,
         train_data,
@@ -217,7 +227,10 @@ def cmd_gpt(
         eval_every=eval_every,
         logger=lambda s: print_indented(s, 2),
     )
+    duration = perf_counter() - start
+
     print_indented("Entraînement terminé", 1)
+    print_indented(f"Durée de l'entraînement = {format_duration(duration)}", 2)
     print_indented(f"Perte d'entraînement = {train_loss_history[-1]:.2f}", 2)
     print_indented(
         f"Perte de validation = {val_loss_history[-1]:.2f}, "
