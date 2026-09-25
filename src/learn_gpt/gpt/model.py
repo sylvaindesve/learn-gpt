@@ -14,7 +14,7 @@ def rmsnorm(x: torch.Tensor) -> torch.Tensor:
 
 # Une couche d'attention à plusieurs têtes
 class MultiHeadAttentionLayer(nn.Module):
-    def __init__(self, embedding_dim: int, n_head: int):
+    def __init__(self, embedding_dim: int, n_head: int, dropout: float = 0.0):
         super().__init__()
 
         if embedding_dim % n_head != 0:
@@ -33,6 +33,10 @@ class MultiHeadAttentionLayer(nn.Module):
         self.wk = nn.Linear(embedding_dim, embedding_dim, bias=False)
         # Value : ce que j'offre
         self.wv = nn.Linear(embedding_dim, embedding_dim, bias=False)
+
+        # Dropout sur l'attention
+        self.dropout_attention = nn.Dropout(dropout)
+
         # Pour recoller les têtes ensemble
         self.wo = nn.Linear(embedding_dim, embedding_dim, bias=False)
 
@@ -76,6 +80,9 @@ class MultiHeadAttentionLayer(nn.Module):
         #   weights est de dimensions (n, n_head, block_size, block_size)
         weights = torch.softmax(scores, dim=-1)
 
+        # Dropout appliqués aux scores d'attention
+        weights = self.dropout_attention(weights)
+
         # On calcule la valeur "renforcée" par le calcul d'attention
         #   (n, n_head, block_size, block_size) @ (n, n_head, block_size, head_dim)
         #   -> (n, n_head, block_size, head_dim)
@@ -105,12 +112,21 @@ class MultiHeadAttentionLayer(nn.Module):
 # On normalise l'entrée de chaque sous-couche plutôt que sa sortie : c'est la
 # convention des GPT modernes, plus stable quand on empile les blocs.
 class TransformerBlock(nn.Module):
-    def __init__(self, embedding_dim: int, n_head: int, expansion_factor: int = 4):
+    def __init__(
+        self,
+        embedding_dim: int,
+        n_head: int,
+        expansion_factor: int = 4,
+        dropout: float = 0.0,
+    ):
         super().__init__()
 
         # Attention multi-têtes : la couche qui communique
         #   Chaque position échange de l'information avec les autres
-        self.attn = MultiHeadAttentionLayer(embedding_dim, n_head)
+        self.attn = MultiHeadAttentionLayer(embedding_dim, n_head, dropout)
+
+        # Dropout sur l'attention
+        self.dropout_attention = nn.Dropout(dropout)
 
         # Couche MLP : la couche qui calcule
         #   Chaque position transforme l'information qu'elle a reçue
@@ -125,6 +141,9 @@ class TransformerBlock(nn.Module):
             nn.Linear(expansion_factor * embedding_dim, embedding_dim, bias=False),
         )
 
+        # Dropout en sortie du MLP
+        self.dropout_mlp = nn.Dropout(dropout)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Forme de x = (n, block_size, embedding_dim)
         # -> n séquences de block_size embeddings
@@ -134,6 +153,9 @@ class TransformerBlock(nn.Module):
 
         # Calcul d'attention sur les entrées normalisées
         attention = self.attn(normalized_before)
+
+        # Dropout sur l'attention
+        attention = self.dropout_attention(attention)
 
         # Connexion résiduelle : ce qui permet d'entraîner un réseau profond
         # Lorsque les poids sont à zéro, on se retrouve avec x
@@ -145,6 +167,9 @@ class TransformerBlock(nn.Module):
 
         # MLP
         f = self.mlp(normalized_after)
+
+        # Dropout sur la sortie du MLP
+        f = self.dropout_mlp(f)
 
         # Connexion résiduelle (encore)
         result = attention_added + f
@@ -163,6 +188,7 @@ class MicroGPTModel(nn.Module):
         n_head: int = 4,
         n_layer: int = 2,
         expansion_factor: int = 4,
+        dropout: float = 0.0,
     ):
         super().__init__()
 
@@ -174,10 +200,13 @@ class MicroGPTModel(nn.Module):
         # Poids de la position des tokens dans le contexte
         self.wpe = nn.Embedding(block_size, embedding_dim)
 
+        # Dropout sur les embeddings
+        self.dropout_embeddings = nn.Dropout(dropout)
+
         # Blocs Transformer
         self.transformers = nn.Sequential(
             *[
-                TransformerBlock(embedding_dim, n_head, expansion_factor)
+                TransformerBlock(embedding_dim, n_head, expansion_factor, dropout)
                 for _ in range(n_layer)
             ]
         )
@@ -192,6 +221,9 @@ class MicroGPTModel(nn.Module):
         # L'embedding code à la fois le token et sa position dans le contexte
         #   Forme (n, block_size, embedding_dim) -> n séquences de block_size embeddings
         e = self.wte(x) + self.wpe(torch.arange(x.shape[1]))
+
+        # Dropout appliqué aux embeddings
+        e = self.dropout_embeddings(e)
 
         # On traverse les blocs Transformer (attention + MLP)
         #   Forme (n, block_size, embedding_dim)

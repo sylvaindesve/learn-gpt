@@ -128,6 +128,7 @@ def cmd_gpt(
     n_layers: int,
     lr: float,
     weight_decay: float,
+    dropout: float,
     batch_size: int,
     steps: int,
     eval_every: int,
@@ -192,7 +193,12 @@ def cmd_gpt(
     print_indented("Instanciation du modèle", 1)
     torch.manual_seed(0)
     model = MicroGPTModel(
-        len(tokenizer.vocab), embedding_dim, block_size, n_head, n_layers
+        len(tokenizer.vocab),
+        embedding_dim,
+        block_size,
+        n_head,
+        n_layers,
+        dropout=dropout,
     )
     print_parameters(model)
 

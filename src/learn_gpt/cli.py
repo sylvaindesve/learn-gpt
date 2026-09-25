@@ -223,6 +223,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_layers_argument(gpt, default=4)
     _add_lr_argument(gpt, default=0.003)
     _add_weight_decay_argument(gpt, default=0.0)
+    _add_dropout_argument(gpt, default=0.0)
     _add_batch_size_argument(gpt, default=32)
     _add_steps_argument(gpt, default=3000)
     _add_eval_every_argument(gpt, default=200)
@@ -644,6 +645,7 @@ def cmd_gpt(args: argparse.Namespace) -> int:
         n_layers=args.layers,
         lr=args.lr,
         weight_decay=args.wd,
+        dropout=args.dropout,
         batch_size=args.batch,
         steps=args.steps,
         eval_every=args.eval_every,
