@@ -90,3 +90,4 @@ def plot_learning_curves(
     plt.grid(True)
 
     save_figure(filepath)
+    plt.close()

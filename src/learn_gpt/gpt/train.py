@@ -1,4 +1,5 @@
-from collections.abc import Callable
+from collections.abc import Iterator
+from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
@@ -67,14 +68,22 @@ def evaluate_stream(
     return total_loss / total_windows
 
 
+# Données que l'entraînement envoie à chaque étape
+@dataclass(frozen=True)
+class Progress:
+    step: int  # l'étape qui vient de se terminer
+    train_loss: float  # la perte sur le lot de cette étape
+    val_loss: float | None  # la perte de validation, si calculée à cette étape
+
+
 # Entraînement en mesurant régulièrement la perte sur un jeu de
 # validation que le modèle ne voit jamais pendant l'apprentissage.
 # C'est cette perte-là qui dit si le modèle apprend vraiment, ou s'il
 # surapprend les données d'entraînement.
 #
-# Renvoie (pertes d'entraînement, pertes de validation, étapes d'évaluation) :
-# la perte d'entraînement est mesurée à chaque étape, la perte de validation
-# seulement toutes les `eval_every` étapes, d'où la liste des étapes.
+# Renvoie un générateur qui émet des objets Progress à chaque étape.
+# La perte de validation est évaluée seulement toutes les `eval_every`
+# étapes.
 def train_stream_with_validation(
     model: nn.Module,  # le modèle
     train_stream: list[int],  # le flux d'entraînement
@@ -88,9 +97,7 @@ def train_stream_with_validation(
     eval_every: int = 200,  # fréquence d'évaluation de la validation
     val_windows: int = 1024,  # nombre de fenêtres de validation évaluées
     seed: int = 0,
-    logger: Callable[[str], None] = lambda _: None,
-    log_every: int = 50,
-) -> tuple[list[float], list[float], list[int]]:
+) -> Iterator[Progress]:
     torch.manual_seed(seed)
 
     # Optimiseur
@@ -98,10 +105,6 @@ def train_stream_with_validation(
 
     # Fonction de calcul de perte : entropie croisée
     loss_fn = nn.CrossEntropyLoss()
-
-    train_loss_history: list[float] = []
-    val_loss_history: list[float] = []
-    eval_steps: list[int] = []
 
     for step in range(steps):
         # On tire au hasard batch_size fenêtres de block_size tokens dans le flux
@@ -128,9 +131,8 @@ def train_stream_with_validation(
         # Mise à jour des poids
         opt.step()
 
-        train_loss_history.append(loss.item())
-
         # Évaluation sur le jeu de validation
+        val_loss = None
         if (step + 1) % eval_every == 0:
             val_loss = evaluate_stream(
                 model,
@@ -140,18 +142,8 @@ def train_stream_with_validation(
                 n_windows=val_windows,
                 seed=seed,
             )
-            val_loss_history.append(val_loss)
-            eval_steps.append(step + 1)
 
             # evaluate_stream a passé le modèle en mode évaluation
             model.train()
 
-            logger(
-                f"Etape {step + 1}/{steps}, "
-                f"perte train = {train_loss_history[-1]:.2f}, "
-                f"perte val = {val_loss:.2f}"
-            )
-        elif step % log_every == 0:
-            logger(f"Etape {step + 1}/{steps}, perte = {train_loss_history[-1]:.2f}")
-
-    return train_loss_history, val_loss_history, eval_steps
+        yield Progress(step + 1, loss.item(), val_loss)

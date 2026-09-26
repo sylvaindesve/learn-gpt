@@ -219,8 +219,11 @@ def cmd_gpt(
     print_new_line()
 
     print_indented("Entraînement ...", 1)
+    train_loss_history: list[float] = []
+    val_loss_history: list[float] = []
+    eval_steps: list[int] = []
     start = perf_counter()
-    train_loss_history, val_loss_history, eval_steps = train_stream_with_validation(
+    for progress in train_stream_with_validation(
         model,
         train_data,
         val_data,
@@ -231,8 +234,22 @@ def cmd_gpt(
         batch_size=batch_size,
         steps=steps,
         eval_every=eval_every,
-        logger=lambda s: print_indented(s, 2),
-    )
+    ):
+        train_loss_history.append(progress.train_loss)
+        if progress.val_loss is not None:
+            val_loss_history.append(progress.val_loss)
+            eval_steps.append(progress.step)
+            print_indented(
+                f"Etape {progress.step}/{steps}, "
+                f"perte train = {progress.train_loss:.2f}, "
+                f"perte val = {progress.val_loss:.2f}",
+                2,
+            )
+        elif progress.step % 50 == 0:
+            print_indented(
+                f"Etape {progress.step}/{steps}, perte = {progress.train_loss:.2f}", 2
+            )
+
     duration = perf_counter() - start
 
     print_indented("Entraînement terminé", 1)
